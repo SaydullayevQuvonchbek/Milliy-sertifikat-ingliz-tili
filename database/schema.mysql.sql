@@ -105,7 +105,9 @@ CREATE TABLE IF NOT EXISTS attempt_events (
     is_violation TINYINT NOT NULL DEFAULT 0,
     created_ms BIGINT NOT NULL,
     client_ms BIGINT NULL,
+    event_key VARCHAR(40) NULL,
     KEY idx_events_attempt (attempt_id),
+    UNIQUE KEY uq_events_key (attempt_id, event_key),
     CONSTRAINT fk_events_attempt FOREIGN KEY (attempt_id) REFERENCES attempts (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

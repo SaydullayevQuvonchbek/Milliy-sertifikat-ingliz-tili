@@ -124,3 +124,11 @@ test('Rasch: hamma to\'g\'ri topgan savol baholashdan chiqariladi', function ():
     eq(null, $est['difficulty'][0]);
     ok($est['difficulty'][1] !== null && $est['difficulty'][2] !== null);
 });
+
+test('so\'z sanash frontend qoidasi bilan bir xil', function (): void {
+    eq(0, App\Util::wordCount(''));
+    eq(2, App\Util::wordCount('  Hello   world  '));
+    eq(6, App\Util::wordCount("It's a well-known fact, isn't it?"));
+    eq(1, App\Util::wordCount('— , . 2024'));
+    eq(4, App\Util::wordCount("Line one\nline two"));
+});

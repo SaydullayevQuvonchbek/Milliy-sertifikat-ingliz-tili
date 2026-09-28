@@ -32,7 +32,7 @@ final class AttemptService
     public const SPEAKING_ABANDON_MS = 30 * 60_000;
     public const MAX_EVENTS_PER_REQUEST = 50;
 
-    public const VIOLATION_TYPES = ['focus_lost', 'fullscreen_exit', 'device_takeover', 'multiple_tabs', 'devtools'];
+    public const VIOLATION_TYPES = ['focus_lost', 'fullscreen_exit', 'page_closed', 'device_takeover', 'multiple_tabs', 'devtools'];
     public const INFO_TYPES = [
         'paste_blocked', 'copy_blocked', 'cut_blocked', 'shortcut_blocked', 'contextmenu_blocked', 'drop_blocked',
         'print_blocked', 'offline', 'online', 'reload', 'returned', 'audio_error', 'audio_resync', 'large_insert',
@@ -503,10 +503,16 @@ final class AttemptService
             }
             $detail = mb_substr(Util::cleanText($event['detail'] ?? '', 300), 0, 300);
             $clientMs = is_numeric($event['t'] ?? null) ? (int) $event['t'] : null;
+            // Mijoz hodisani qayta yuborishi mumkin (javob kelmay turib sahifa yopilsa) — bir marta hisoblanadi.
+            $key = is_string($event['id'] ?? null) && preg_match('/^[A-Za-z0-9]{6,32}$/', $event['id']) ? $event['id'] : null;
+            if ($key !== null && Db::val('SELECT COUNT(*) FROM attempt_events WHERE attempt_id = ? AND event_key = ?', [$a['id'], $key])) {
+                continue;
+            }
+            $section = in_array($event['section'] ?? null, ['L', 'R', 'W', 'S'], true) ? $event['section'] : null;
             // Imtihon tugagandan keyingi qoidabuzarliklar hisoblanmaydi.
             $counted = $isViolation && $a['status'] === 'in_progress' && in_array($a['stage'], ['L', 'R', 'W', 'S'], true)
                 && ($a['stage_state'] === 'active');
-            self::insertEvent($a, $type, $detail, $counted, $clientMs);
+            self::insertEvent($a, $type, $detail, $counted, $clientMs, $key, $section);
             if ($counted) {
                 $newViolations++;
             }
@@ -524,16 +530,17 @@ final class AttemptService
         return $a;
     }
 
-    private static function insertEvent(array $a, string $type, string $detail, bool $violation, ?int $clientMs): void
+    private static function insertEvent(array $a, string $type, string $detail, bool $violation, ?int $clientMs, ?string $key = null, ?string $section = null): void
     {
         Db::insert('attempt_events', [
             'attempt_id' => $a['id'],
             'type' => $type,
-            'section' => in_array($a['stage'], ['L', 'R', 'W', 'S'], true) ? $a['stage'] : null,
+            'section' => $section ?? (in_array($a['stage'], ['L', 'R', 'W', 'S'], true) ? $a['stage'] : null),
             'detail' => $detail,
             'is_violation' => $violation ? 1 : 0,
             'created_ms' => Util::nowMs(),
             'client_ms' => $clientMs,
+            'event_key' => $key,
         ]);
     }
 

@@ -1,0 +1,198 @@
+// O'quvchi interfeysidagi barcha matnlar bir joyda — imlo va uslub bir xil bo'lishi uchun.
+// Imtihon topshiriqlari (instructions) esa ingliz tilida, admin tomonidan kiritiladi.
+
+export const SECTION = {
+  L: 'Listening',
+  R: 'Reading',
+  W: 'Writing',
+  S: 'Speaking',
+};
+
+export const T = {
+  appLoading: 'Yuklanmoqda…',
+  logout: 'Chiqish',
+
+  // Kirish
+  loginTitle: 'Tizimga kirish',
+  loginSubtitle: 'Milliy sertifikat (Multilevel) formatidagi mock imtihon',
+  phoneOrLogin: 'Telefon raqami yoki login',
+  password: 'Parol',
+  signIn: 'Kirish',
+  noAccount: "Hisobingiz yo'qmi?",
+  register: "Ro'yxatdan o'tish",
+  haveAccount: 'Hisobingiz bormi?',
+  fullName: 'Ism va familiya',
+  phone: 'Telefon raqami',
+  newPassword: "Parol (kamida 6 ta belgi)",
+
+  // Bosh sahifa
+  myMocks: 'Mocklar',
+  randomMock: 'Tasodifiy mock',
+  randomHint: "Hali ishlamagan mocklaringizdan biri tanlanadi.",
+  noMocks: "Hozircha ochiq mock yo'q.",
+  attemptsUsed: (used, max) => `Urinishlar: ${used}/${max}`,
+  start: 'Boshlash',
+  resume: 'Davom etish',
+  startSpeaking: "Speaking'ni boshlash",
+  myResults: 'Natijalarim',
+  noResults: "Hali natijalar yo'q.",
+  viewResult: "Natijani ko'rish",
+  resultsHidden: "Natijalar hali e'lon qilinmagan",
+  attemptN: (n) => `${n}-urinish`,
+  statusInProgress: 'Jarayonda',
+  statusCompleted: 'Yakunlangan',
+  statusTerminated: 'Chetlatilgan',
+
+  // Qoidalar
+  rulesTitle: 'Imtihon qoidalari',
+  rules: [
+    "Imtihon to'liq ekran rejimida o'tadi. To'liq ekrandan chiqish, boshqa oyna yoki dasturga o'tish qoidabuzarlik hisoblanadi.",
+    "Nusxa olish, joylashtirish (paste), sichqonchaning o'ng tugmasi va klaviatura yorliqlari o'chirilgan.",
+    "Imtihonni faqat bitta oynada ishlash mumkin. Ikkinchi oyna yoki qurilmada ochilsa, birinchisi yopiladi.",
+    "Javoblaringiz avtomatik saqlanadi. Internet uzilsa ham ishlashda davom eting — javoblar qurilmada saqlanadi va aloqa tiklanganda yuboriladi.",
+    "Vaqt serverda hisoblanadi. Sahifani yangilash yoki kompyuterni o'chirib yoqish taymerni to'xtatmaydi.",
+    "Bo'lim yakunlangach unga qaytib bo'lmaydi. Listening audiosi har bir matn uchun ikki marta eshittiriladi, uni to'xtatib yoki orqaga surib bo'lmaydi.",
+  ],
+  rulesViolations: (max) => max > 0
+    ? `Qoidabuzarliklar soni ${max} tadan oshsa, imtihon avtomatik yakunlanadi va natija bekor qilinadi.`
+    : "Barcha qoidabuzarliklar jurnalga yoziladi va administratorga ko'rsatiladi.",
+  rulesAccept: 'Qoidalar bilan tanishdim va ularga roziman',
+  soundCheck: 'Ovozni tekshirish',
+  soundCheckHint: "Quloqchinni taqing va tugmani bosing. Ovoz eshitilsa, balandligini sozlang.",
+  playTestSound: 'Sinov ovozini eshitish',
+  fullscreenNote: "Boshlash tugmasi bosilganda sahifa to'liq ekranga o'tadi.",
+  mobileNote: "Imtihonni kompyuterda ishlash tavsiya etiladi.",
+
+  // Listening tayyorgarligi
+  listeningPrepare: 'Listening bo\'limiga tayyorgarlik',
+  audioLoading: (done, total) => `Audio yuklanmoqda: ${done}/${total}`,
+  audioReady: 'Audio tayyor. Internet uzilsa ham audio to\'xtamaydi.',
+  audioFailed: "Audio yuklanmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
+  retry: 'Qayta urinish',
+  startListening: "Listening'ni boshlash",
+  startSection: (name) => `${name} bo'limini boshlash`,
+  autoStartPrefix: "Bo'lim",
+  autoStartSuffix: 'dan keyin avtomatik boshlanadi.',
+  autoStartFirst: (time) => `Agar ${time} ichida boshlamasangiz, bo'lim avtomatik boshlanadi.`,
+  sectionFinished: (name) => `${name} bo'limi yakunlandi`,
+  nextSection: (name) => `Keyingi bo'lim: ${name}`,
+  sectionDuration: (min) => `Davomiyligi: ${min} daqiqa`,
+
+  // Imtihon qobig'i
+  candidate: 'Nomzod',
+  timeLeft: 'Qolgan vaqt',
+  saved: 'Saqlandi',
+  saving: 'Saqlanmoqda…',
+  offline: "Internet yo'q — javoblar qurilmada saqlanmoqda",
+  finishSection: 'Bo\'limni yakunlash',
+  finishConfirmTitle: 'Bo\'limni yakunlaysizmi?',
+  finishConfirm: (unanswered, flagged) => {
+    const parts = [];
+    if (unanswered > 0) parts.push(`${unanswered} ta savolga javob berilmagan`);
+    if (flagged > 0) parts.push(`${flagged} ta savol belgilangan`);
+    const head = parts.length ? parts.join(', ') + '. ' : '';
+    return head + "Yakunlangandan keyin bu bo'limga qaytib bo'lmaydi.";
+  },
+  finishYes: 'Ha, yakunlash',
+  cancel: 'Bekor qilish',
+  review: 'Belgilash',
+  reviewHint: 'Keyinroq qaytish uchun savolni belgilash',
+  prev: 'Oldingi',
+  next: 'Keyingi',
+  part: (n) => `Part ${n}`,
+  answeredOf: (a, t) => `${a}/${t}`,
+  fontSize: 'Matn o\'lchami',
+  contrast: 'Rang rejimi',
+  contrastNormal: 'Oddiy',
+  contrastYellow: 'Qora fonda sariq',
+  contrastCream: 'Krem fon',
+  settings: 'Sozlamalar',
+  timeWarning: (min) => `Diqqat: ${min} daqiqa qoldi.`,
+  timeUp: 'Vaqt tugadi. Javoblaringiz yuborilmoqda…',
+  passage: 'Matn',
+  questions: 'Savollar',
+
+  // Listening
+  nowPlaying: 'Eshittirilmoqda',
+  previewTime: 'Savollarni ko\'rib chiqing',
+  pauseTime: 'Pauza',
+  reviewTime: 'Javoblarni tekshirish vaqti',
+  listenN: (n) => `${n}-marta`,
+  volume: 'Ovoz balandligi',
+  tapToContinue: 'Audio to\'xtab qoldi. Davom ettirish uchun bosing.',
+  continueAudio: 'Davom ettirish',
+  partStarted: (n) => `Part ${n} boshlandi`,
+  startsIn: 'Boshlanishiga',
+
+  // Writing
+  words: 'So\'zlar',
+  wordsTarget: (min, max) => (max ? `${min}–${max} so'z` : min ? `kamida ${min} so'z` : ''),
+  task: (id) => `Task ${id}`,
+  pasteBlocked: 'Joylashtirish (paste) taqiqlangan.',
+  writeHere: 'Javobingizni shu yerga yozing…',
+
+  // Qulf (lockdown)
+  leftTitle: 'Imtihon oynasidan chiqdingiz',
+  leftText: "Bu qoidabuzarlik sifatida qayd etildi. Imtihonni davom ettirish uchun tugmani bosing.",
+  violationCount: (n, max) => (max > 0 ? `Qoidabuzarliklar: ${n}/${max}` : `Qoidabuzarliklar: ${n}`),
+  lastWarning: "Keyingi qoidabuzarlikda imtihon avtomatik yakunlanadi!",
+  backToExam: 'Imtihonga qaytish',
+  fullscreenRequired: "Imtihonni davom ettirish uchun to'liq ekran rejimi kerak.",
+  enterFullscreen: "To'liq ekranga o'tish",
+  shortcutBlocked: 'Bu tugma imtihon vaqtida ishlamaydi.',
+  otherDeviceTitle: 'Imtihon boshqa oynada ochiq',
+  otherDeviceText: "Bu imtihon boshqa oyna yoki qurilmada ochilgan. Shu yerda davom ettirsangiz, u oyna yopiladi va bu qoidabuzarlik sifatida qayd etiladi.",
+  continueHere: 'Shu yerda davom ettirish',
+  takenOverTitle: 'Imtihon boshqa oynaga ko\'chirildi',
+  takenOverText: "Bu imtihon boshqa oyna yoki qurilmada ochildi. Bu oynani yoping.",
+
+  // Yakun
+  terminatedTitle: 'Imtihon to\'xtatildi',
+  terminatedText: 'Imtihon qoidalari buzilgani sababli urinish yakunlandi.',
+  finishedTitle: 'Imtihon yakunlandi',
+  finishedText: "Javoblaringiz qabul qilindi. Natijalar e'lon qilingach, bosh sahifada ko'rinadi.",
+  writtenDoneTitle: 'Yozma qism yakunlandi',
+  writtenDoneSeparate: "Listening, Reading va Writing bo'limlari yakunlandi. Speaking bo'limini bosh sahifadan belgilangan vaqtda boshlaysiz.",
+  toDashboard: 'Bosh sahifaga qaytish',
+
+  // Speaking
+  speakingIntro: 'Speaking bo\'limi',
+  speakingRules: [
+    'Har bir savol ekranda ko\'rsatiladi. Tayyorlanish vaqti bo\'lsa, taymer tugagach signal eshitiladi.',
+    'Signaldan keyin gapiring. Yozuv vaqt tugashi bilan avtomatik to\'xtaydi.',
+    'Har bir savolga faqat bir marta javob beriladi. Qayta yozib bo\'lmaydi.',
+    'Tinch xonada, quloqchin va mikrofon bilan ishlang.',
+  ],
+  micCheck: 'Mikrofonni tekshirish',
+  micAllow: 'Mikrofonga ruxsat berish',
+  micDenied: "Mikrofonga ruxsat berilmadi. Brauzer sozlamalarida mikrofonga ruxsat bering va qayta urinib ko'ring.",
+  micUnsupported: "Bu brauzer ovoz yozishni qo'llab-quvvatlamaydi. Google Chrome'ning so'nggi versiyasidan foydalaning.",
+  micTest: '5 soniya yozib ko\'rish',
+  micTestPlay: 'Yozuvni eshitish',
+  micOk: 'Mikrofon ishlayapti',
+  startSpeakingNow: "Speaking'ni boshlash",
+  question: (n, total) => `Savol ${n}/${total}`,
+  prepare: 'Tayyorlanish',
+  speakNow: 'Gapiring',
+  recording: 'Yozilmoqda',
+  uploading: 'Javob yuborilmoqda…',
+  uploadFailed: "Javob yuborilmadi. Internet tiklanishi bilan qayta yuboriladi.",
+  listenQuestion: 'Savolni tinglang',
+  for: 'FOR',
+  against: 'AGAINST',
+  speakingDone: 'Speaking yakunlandi',
+  speakingDoneText: "Javoblaringiz yuborildi. Natijalar ekspertlar baholagandan so'ng e'lon qilinadi.",
+  missedQuestion: "Oldingi savol yozuvi uzilib qoldi (sahifa yangilangan). Keyingi savolga o'tamiz.",
+  continue: 'Davom etish',
+  speakingNotYet: 'Speaking hali ochilmagan.',
+
+  // Natija
+  resultTitle: 'Natija',
+  overall: 'Umumiy ball',
+  level: 'Daraja',
+  raw: 'to\'g\'ri javob',
+  pending: 'Tekshirilmoqda',
+  provisionalNote: "Listening va Reading ballari hozircha taxminiy. Yakuniy ball barcha qatnashchilar natijasi asosida Rasch modeli bilan hisoblanadi.",
+  expertComments: 'Ekspert izohlari',
+  byParts: 'Qismlar bo\'yicha',
+};

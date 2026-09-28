@@ -100,9 +100,11 @@ CREATE TABLE IF NOT EXISTS attempt_events (
     detail TEXT,
     is_violation INTEGER NOT NULL DEFAULT 0,
     created_ms INTEGER NOT NULL,
-    client_ms INTEGER
+    client_ms INTEGER,
+    event_key TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_attempt ON attempt_events (attempt_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_key ON attempt_events (attempt_id, event_key);
 
 CREATE TABLE IF NOT EXISTS speaking_answers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
