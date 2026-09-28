@@ -310,6 +310,28 @@ try {
     await ap.close();
   });
 
+  await step("admin: mock quruvchi — shablon, saqlash, tekshiruv va barcha tablar", async () => {
+    const ap = await adminCtx.newPage();
+    ap.on('pageerror', (e) => pageErrors.push('admin: ' + e.message));
+    ap.on('dialog', (d) => d.accept());
+    await ap.goto(`${base}/admin/#/mocks/new`);
+    await ap.locator('.field', { hasText: 'Mock nomi' }).locator('input').fill('UI orqali yaratilgan mock');
+    await ap.locator('.tab', { hasText: 'Reading' }).click();
+    await ap.getByRole('button', { name: 'Rasmiy format shablonini yaratish' }).click();
+    assert((await ap.locator('.part-card').count()) === 5, "Reading shablonida 5 ta qism bo'lishi kerak");
+    await ap.locator('.page-actions button', { hasText: 'Saqlash' }).click();
+    await ap.waitForURL(/#\/mocks\/\d+$/);
+    for (const tab of ['Umumiy', 'Listening', 'Reading', 'Writing', 'Speaking', 'Fayllar', "O'quvchi ko'rinishi", 'JSON']) {
+      await ap.locator('.tab', { hasText: tab }).first().click();
+      await ap.waitForTimeout(150);
+    }
+    await ap.locator('.tab', { hasText: 'Tekshirish' }).click();
+    await ap.locator('.validation').waitFor();
+    const text = await ap.locator('.validation').innerText();
+    assert(text.includes('35 savol') && text.includes('Xatolar'), 'tekshiruv natijasi kutilganidek emas');
+    await ap.close();
+  });
+
   await step("o'quvchi natijasini va ekspert izohini ko'radi", async () => {
     await page.goto(`${base}/#/`);
     await page.locator('.table a', { hasText: "Natijani ko'rish" }).first().click();

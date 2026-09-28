@@ -9,7 +9,6 @@ export const SECTION = {
 };
 
 export const T = {
-  appLoading: 'Yuklanmoqda…',
   logout: 'Chiqish',
 
   // Kirish
@@ -61,10 +60,8 @@ export const T = {
   soundCheckHint: "Quloqchinni taqing va tugmani bosing. Ovoz eshitilsa, balandligini sozlang.",
   playTestSound: 'Sinov ovozini eshitish',
   fullscreenNote: "Boshlash tugmasi bosilganda sahifa to'liq ekranga o'tadi.",
-  mobileNote: "Imtihonni kompyuterda ishlash tavsiya etiladi.",
 
   // Listening tayyorgarligi
-  listeningPrepare: 'Listening bo\'limiga tayyorgarlik',
   audioLoading: (done, total) => `Audio yuklanmoqda: ${done}/${total}`,
   audioReady: 'Audio tayyor. Internet uzilsa ham audio to\'xtamaydi.',
   audioFailed: "Audio yuklanmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
@@ -119,7 +116,6 @@ export const T = {
   reviewTime: 'Javoblarni tekshirish vaqti',
   listenN: (n) => `${n}-marta`,
   volume: 'Ovoz balandligi',
-  tapToContinue: 'Audio to\'xtab qoldi. Davom ettirish uchun bosing.',
   continueAudio: 'Davom ettirish',
   partStarted: (n) => `Part ${n} boshlandi`,
   startsIn: 'Boshlanishiga',
@@ -139,7 +135,6 @@ export const T = {
   backToExam: 'Imtihonga qaytish',
   fullscreenRequired: "Imtihonni davom ettirish uchun to'liq ekran rejimi kerak.",
   enterFullscreen: "To'liq ekranga o'tish",
-  shortcutBlocked: 'Bu tugma imtihon vaqtida ishlamaydi.',
   otherDeviceTitle: 'Imtihon boshqa oynada ochiq',
   otherDeviceText: "Bu imtihon boshqa oyna yoki qurilmada ochilgan. Shu yerda davom ettirsangiz, u oyna yopiladi va bu qoidabuzarlik sifatida qayd etiladi.",
   continueHere: 'Shu yerda davom ettirish',
@@ -168,7 +163,6 @@ export const T = {
   micDenied: "Mikrofonga ruxsat berilmadi. Brauzer sozlamalarida mikrofonga ruxsat bering va qayta urinib ko'ring.",
   micUnsupported: "Bu brauzer ovoz yozishni qo'llab-quvvatlamaydi. Google Chrome'ning so'nggi versiyasidan foydalaning.",
   micTest: '5 soniya yozib ko\'rish',
-  micTestPlay: 'Yozuvni eshitish',
   micOk: 'Mikrofon ishlayapti',
   startSpeakingNow: "Speaking'ni boshlash",
   question: (n, total) => `Savol ${n}/${total}`,
@@ -180,14 +174,10 @@ export const T = {
   listenQuestion: 'Savolni tinglang',
   for: 'FOR',
   against: 'AGAINST',
-  speakingDone: 'Speaking yakunlandi',
-  speakingDoneText: "Javoblaringiz yuborildi. Natijalar ekspertlar baholagandan so'ng e'lon qilinadi.",
   missedQuestion: "Oldingi savol yozuvi uzilib qoldi (sahifa yangilangan). Keyingi savolga o'tamiz.",
   continue: 'Davom etish',
-  speakingNotYet: 'Speaking hali ochilmagan.',
 
   // Natija
-  resultTitle: 'Natija',
   overall: 'Umumiy ball',
   level: 'Daraja',
   raw: 'to\'g\'ri javob',
