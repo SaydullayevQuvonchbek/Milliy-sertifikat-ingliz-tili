@@ -140,6 +140,8 @@ export const T = {
   continueHere: 'Shu yerda davom ettirish',
   takenOverTitle: 'Imtihon boshqa oynaga ko\'chirildi',
   takenOverText: "Bu imtihon boshqa oyna yoki qurilmada ochildi. Bu oynani yoping.",
+  attemptGoneTitle: 'Urinish topilmadi',
+  attemptGoneText: "Bu urinish administrator tomonidan bekor qilingan. Bosh sahifadan mockni qayta boshlashingiz mumkin.",
 
   // Yakun
   terminatedTitle: 'Imtihon to\'xtatildi',

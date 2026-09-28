@@ -179,7 +179,7 @@ export class Saver {
       this.o.onSummary(summary);
       return summary;
     } catch (err) {
-      if (err.status === 409 || err.status === 401 || err.status === 403) {
+      if (err.status === 409 || err.status === 401 || err.status === 403 || err.status === 404) {
         this.stop();
         this.o.onFatal(err.code, err.message);
         return null;

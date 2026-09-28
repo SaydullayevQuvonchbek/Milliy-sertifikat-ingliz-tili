@@ -1,0 +1,26 @@
+name: Testlar
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, intl, fileinfo, gd
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PHP sintaksisi
+        run: find src public bin tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+      - name: JS sintaksisi
+        run: for f in $(find public/assets/js -name '*.js'); do node --check "$f"; done
+      - name: PHP testlari
+        run: php tests/php/run.php
+      - name: JS testlari
+        run: node --test tests/js/*.test.mjs

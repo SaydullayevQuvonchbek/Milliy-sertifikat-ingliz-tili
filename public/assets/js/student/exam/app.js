@@ -198,7 +198,9 @@ export class ExamApp {
   }
 
   report(type, detail = '', violation = false) {
-    if (violation) {
+    // Server qoidabuzarlikni faqat bo'lim faol bo'lganda hisoblaydi — ekrandagi hisoblagich ham shunday.
+    const active = this.state && this.state.section && this.state.section.state === 'active';
+    if (violation && active) {
       this.violations += 1;
       if (this.lock) this.lock.refreshOverlay();
     }
@@ -224,6 +226,8 @@ export class ExamApp {
     }
     if (code === 'taken_over' || code === 'other_device') {
       this.screen(T.takenOverTitle, T.takenOverText, false);
+    } else if (code === 'not_found') {
+      this.screen(T.attemptGoneTitle, T.attemptGoneText, true);
     } else {
       this.screen('Xatolik', message || 'Kutilmagan xatolik.', true);
     }
@@ -260,6 +264,8 @@ export class ExamApp {
   render(state) {
     if (this.destroyed) return;
     this.teardownView();
+    // Saqlovchi faqat faol bo'limga ulanadi (renderSection qayta ulaydi).
+    if (this.saver) this.saver.unbind();
     this.state = state;
     this.violations = state.attempt.violations;
     this.finishing = false;
@@ -626,11 +632,16 @@ export class ExamApp {
             continue;
           }
           overlay.remove();
-          this.finishing = false;
-          if (err instanceof ApiError && err.status === 409) {
+          if (err instanceof ApiError && (err.status === 409 || err.status === 404)) {
             this.onFatal(err.code, err.message);
             return;
           }
+          if (auto) {
+            // Vaqt tugaganda avtomatik yakunlash: serverning soati biroz orqada bo'lsa, jim qayta urinamiz.
+            setTimeout(() => (this.finishing = false), 1500);
+            return;
+          }
+          this.finishing = false;
           toast(err.message, 'error');
           return;
         }
