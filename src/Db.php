@@ -127,6 +127,23 @@ final class Db
      */
     public static function tx(callable $fn): mixed
     {
+        // MySQL'da deadlock yoki qulf kutish vaqti tugasa, tranzaksiya to'liq qaytariladi — qayta urinamiz.
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return self::runTx($fn);
+            } catch (PDOException $e) {
+                $code = (int) ($e->errorInfo[1] ?? 0);
+                $retryable = self::$depth === 0 && self::$driver === 'mysql' && in_array($code, [1213, 1205], true);
+                if (!$retryable || $attempt >= 3) {
+                    throw $e;
+                }
+                usleep(50_000 * $attempt);
+            }
+        }
+    }
+
+    private static function runTx(callable $fn): mixed
+    {
         $pdo = self::pdo();
         if (self::$depth > 0) {
             self::$depth++;

@@ -211,7 +211,11 @@ test('Speaking: savollar ketma-ket ochiladi, yakunda ekspert navbatiga tushadi',
     for ($i = 0; $i < 3; $i++) {
         [$a, $q] = A::speakingNext($a, $mock);
         $nos[] = $q['no'];
-        Util::$testNowMs += 30_000;
+        if ($i === 0) {
+            // Oldingi savol vaqti tugamaguncha keyingisi ochilmaydi.
+            throws(fn () => A::speakingNext($a, $mock), 'too_early');
+        }
+        Util::$testNowMs += ($q['prep_sec'] + $q['answer_sec']) * 1000;
     }
     eq([1, 2, 3], $nos);
     [$a, $q] = A::speakingNext($a, $mock);
@@ -262,4 +266,45 @@ test('holat: bo\'lim kontenti faqat bo\'lim boshlanganda beriladi', function ():
     $state = A::stateFor($a, $mock, $user);
     ok(isset($state['section']['content']['parts']));
     ok(!str_contains(Util::json($state), 'nine'), 'kalit yuborilmasligi kerak');
+});
+
+test('qoidabuzarlik ko\'p ma\'lumot hodisalari orasida yo\'qolmaydi', function (): void {
+    $mock = make_mock();
+    $user = make_user();
+    $a = A::startSection(A::startOrResume($user, (int) $mock['id']), $mock, 'L');
+    $events = array_fill(0, 120, ['type' => 'contextmenu_blocked']);
+    $events[] = ['type' => 'focus_lost', 'active' => true];
+    $a = A::recordEvents($a, $events, $mock);
+    eq(1, (int) $a['violations']);
+});
+
+test('kechikib kelgan (internet uzilgan paytdagi) qoidabuzarlik ham hisoblanadi', function (): void {
+    $mock = make_mock(['settings' => ['sections' => ['R', 'W']]]);
+    $user = make_user();
+    $a = A::startSection(A::startOrResume($user, (int) $mock['id']), $mock, 'R');
+    $a = A::finishSection($a, $mock, 'R');
+    eq('pending', $a['stage_state']);
+    $a = A::recordEvents($a, [['type' => 'focus_lost', 'active' => true, 'section' => 'R'], ['type' => 'focus_lost']], $mock);
+    eq(1, (int) $a['violations'], "faqat faol paytdagisi hisoblanadi");
+});
+
+test('Listening audiosi yuklangach bo\'lim 3 daqiqada o\'zi boshlanadi', function (): void {
+    $mock = make_mock();
+    $user = make_user();
+    Util::$testNowMs = 1_800_000_000_000;
+    $a = A::startOrResume($user, (int) $mock['id']);
+    eq(1_800_000_000_000 + A::FIRST_START_WINDOW_MS, A::autoStartAtMs($a, $mock));
+    Util::$testNowMs += 60_000;
+    $a = A::noteAudioFetch($a);
+    eq(Util::$testNowMs + A::AUDIO_PREVIEW_LIMIT_MS, A::autoStartAtMs($a, $mock));
+    Util::$testNowMs += A::AUDIO_PREVIEW_LIMIT_MS + 1;
+    eq('active', A::refresh($a, $mock)['stage_state']);
+});
+
+test('Speaking: ruxsat etilgan vaqtdan uzun yozuv qabul qilinmaydi', function (): void {
+    $mock = make_mock(['settings' => ['sections' => ['S']]]);
+    $user = make_user();
+    $a = A::speakingStart(A::startOrResume($user, (int) $mock['id']), $mock);
+    [$a] = A::speakingNext($a, $mock);
+    throws(fn () => A::speakingUpload($a, $mock, 1, ['error' => UPLOAD_ERR_OK, 'tmp_name' => __FILE__, 'size' => 10], 600.0), 'too_long');
 });

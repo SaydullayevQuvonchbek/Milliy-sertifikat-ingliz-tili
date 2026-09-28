@@ -176,6 +176,7 @@ export const T = {
   listenQuestion: 'Savolni tinglang',
   for: 'FOR',
   against: 'AGAINST',
+  nextQuestionIn: 'Keyingi savol quyidagi vaqtdan keyin ochiladi:',
   missedQuestion: "Oldingi savol yozuvi uzilib qoldi (sahifa yangilangan). Keyingi savolga o'tamiz.",
   continue: 'Davom etish',
 

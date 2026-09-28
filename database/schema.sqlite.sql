@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS grading_claims (
     expires_ms INTEGER NOT NULL,
     PRIMARY KEY (attempt_id, skill, expert_id)
 );
+CREATE INDEX IF NOT EXISTS idx_claims_expires ON grading_claims (expires_ms);
 
 CREATE TABLE IF NOT EXISTS settings (
     name TEXT PRIMARY KEY,

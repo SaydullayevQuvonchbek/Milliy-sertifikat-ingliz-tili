@@ -255,6 +255,11 @@ final class GradingService
             throw new HttpError(422, 'validation', "Ko'nikma noto'g'ri.");
         }
         return Db::tx(static function () use ($expert, $attemptId, $skill, $scores, $flags, $comment): array {
+            // Qulflash tartibi next() bilan bir xil: avval da'vo (claim), keyin urinish — MySQL'da deadlock bo'lmasin.
+            Db::one(
+                'SELECT attempt_id FROM grading_claims WHERE attempt_id = ? AND skill = ? AND expert_id = ?' . Db::forUpdate(),
+                [$attemptId, $skill, $expert['id']]
+            );
             $a = AttemptService::lock($attemptId);
             $col = self::column($skill);
             if ($a[$col] !== 'queue') {

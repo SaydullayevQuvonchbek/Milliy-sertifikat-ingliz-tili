@@ -91,8 +91,10 @@ final class ScoreService
     {
         $mock = MockService::find($mockId);
         $count = 0;
-        foreach (Db::all('SELECT * FROM attempts WHERE mock_id = ?', [$mockId]) as $attempt) {
-            self::recompute($attempt, $mock);
+        foreach (Db::all('SELECT id FROM attempts WHERE mock_id = ?', [$mockId]) as $row) {
+            // Har urinish alohida tranzaksiyada va yangi o'qilgan qator bilan — parallel yakunlangan
+            // bo'limning bali eskisi bilan ustidan yozilmaydi.
+            Db::tx(static fn () => self::recompute(AttemptService::lock((int) $row['id']), $mock));
             $count++;
         }
         return $count;

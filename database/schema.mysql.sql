@@ -146,6 +146,7 @@ CREATE TABLE IF NOT EXISTS grading_claims (
     expert_id INT UNSIGNED NOT NULL,
     expires_ms BIGINT NOT NULL,
     PRIMARY KEY (attempt_id, skill, expert_id),
+    KEY idx_claims_expires (expires_ms),
     CONSTRAINT fk_claims_attempt FOREIGN KEY (attempt_id) REFERENCES attempts (id) ON DELETE CASCADE,
     CONSTRAINT fk_claims_expert FOREIGN KEY (expert_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

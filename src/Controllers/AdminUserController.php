@@ -29,8 +29,9 @@ final class AdminUserController
             $params[] = $role;
         }
         if ($q !== '') {
-            $where[] = '(full_name LIKE ? OR login LIKE ?)';
-            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+            // "!" — SQLite va MySQL'da bir xil ishlaydigan qochish belgisi.
+            $where[] = "(full_name LIKE ? ESCAPE '!' OR login LIKE ? ESCAPE '!')";
+            $like = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $q) . '%';
             $params[] = $like;
             $params[] = $like;
         }

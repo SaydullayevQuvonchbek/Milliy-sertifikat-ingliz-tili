@@ -242,7 +242,8 @@ final class AdminMockController
 
     public static function asset(Request $r): FileResponse
     {
-        Auth::require('admin', 'expert');
+        // Ekspertlar faqat o'zi olgan ish fayllarini ko'radi (ExpertController::image) — bu yerda faqat admin.
+        Auth::require('admin');
         $asset = Db::one('SELECT * FROM assets WHERE id = ?', [(int) $r->param('asset')]);
         if ($asset === null) {
             throw new HttpError(404, 'not_found', 'Fayl topilmadi.');

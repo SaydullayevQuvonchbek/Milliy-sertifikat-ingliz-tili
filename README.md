@@ -23,7 +23,7 @@ Imtihon oynasi IELTS CD (computer-delivered) uslubida qurilgan.
 | Speaking | Mikrofon tekshiruvi (5 soniyalik sinov yozuvi), har savol uchun tayyorlanish va javob taymerlari, signal, avtomatik to'xtash va yuklash |
 | Qotib qolmaslik | Javoblar darhol qurilmaga (localStorage), keyin navbat bilan serverga yoziladi. Internet uzilsa ishlash davom etadi, aloqa tiklanganda yuboriladi |
 | Sahifa o'z-o'zidan qayta chizilmaydi | Ekran faqat bo'lim almashganda yangilanadi; taymer, saqlash holati va navigator joyida yangilanadi. Sahifa yangilansa ham javoblar, belgilar va Listening pozitsiyasi tiklanadi |
-| Server taymeri | Vaqt serverda hisoblanadi; sahifani yangilash yoki kompyuterni qayta yoqish taymerni to'xtatmaydi. Muddat o'tsa, bo'lim avtomatik yopiladi |
+| Server taymeri | Vaqt serverda hisoblanadi; sahifani yangilash yoki kompyuterni qayta yoqish taymerni to'xtatmaydi. Muddat o'tsa, bo'lim avtomatik yopiladi (sekin internet uchun 45 soniyalik zaxira). Listening audiosi yuklab olingach, bo'lim ko'pi bilan 3 daqiqada o'zi boshlanadi — audioni oldindan tinglab bo'lmaydi |
 | Natijalar | 4 ko'nikma balli (75 ballik), umumiy ball va daraja (B1/B2/C1), qismlar bo'yicha to'g'ri javoblar, ekspert izohlari. To'g'ri javoblar kaliti o'quvchiga ko'rsatilmaydi (2-urinish uchun sir qoladi) |
 
 ### Imtihon xavfsizligi (lockdown)
@@ -32,6 +32,8 @@ Imtihon oynasi IELTS CD (computer-delivered) uslubida qurilgan.
 - Boshqa oyna yoki dasturga o'tish, sahifani uzoq muddat (20 soniyadan ortiq) yopib qo'yish — qoidabuzarlik.
 - Nusxa olish, kesish, joylashtirish, fayl tashlash, sichqonchaning o'ng tugmasi, chop etish va klaviatura yorliqlari (Ctrl+C/V/S/P/U/F, F12, F5 va boshqalar) o'chirilgan. Chrome va Edge'da to'liq ekran rejimida **Keyboard Lock API** ham yoqiladi: Esc va ayrim tizim tugmalari sahifada ushlab qolinadi.
 - Bitta imtihon — bitta oyna: ikkinchi oyna yoki qurilmada ochilsa, birinchisi yopiladi va bu qoidabuzarlik sifatida yoziladi.
+- Speaking'da keyingi savol oldingisining vaqti tugamaguncha ochilmaydi; ruxsat etilgan vaqtdan uzun yozuv qabul qilinmaydi.
+- Safe Exam Browser va telefon cheklovi imtihon davomidagi har bir so'rovda tekshiriladi.
 - Qoidabuzarliklar soni chegaradan oshsa (sozlamada, standart — 3 ta), imtihon avtomatik to'xtatiladi. "Faqat jurnalga yozish" rejimi ham bor.
 - Writing'da yozish jarayoni statistikasi saqlanadi: bosilgan tugmalar soni, bloklangan paste urinishlari, birdaniga paydo bo'lgan katta matn bo'laklari.
 - Administrator jonli nazorat sahifasida kim onlayn, qaysi bo'limda, qancha vaqt qolgani va qoidabuzarliklarni ko'radi.
@@ -151,7 +153,7 @@ xatboshi belgisi `[A]` yoki `[7]` bilan boshlanadi, bo'sh joy `[[9]]`.
 ## Testlar
 
 ```bash
-php tests/php/run.php            # 45 ta PHP testi: baholash, Rasch, urinishlar chegarasi, muzlatish, taymerlar, ekspertlar
+php tests/php/run.php            # 50 ta PHP testi: baholash, Rasch, urinishlar chegarasi, muzlatish, taymerlar, ekspertlar
 node --test tests/js/*.test.mjs  # JS testlari: Listening vaqt jadvali (server bilan bir xil), so'z sanash
 npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright): o'quvchi, admin va ekspert
 ```

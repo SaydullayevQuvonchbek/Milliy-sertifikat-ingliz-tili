@@ -204,7 +204,8 @@ export class ExamApp {
       this.violations += 1;
       if (this.lock) this.lock.refreshOverlay();
     }
-    if (this.saver) this.saver.event(type, detail, violation);
+    const section = this.state && this.state.section ? this.state.section.code : null;
+    if (this.saver) this.saver.event(type, detail, violation, section, violation && active);
   }
 
   onSummary(summary) {
@@ -347,6 +348,12 @@ export class ExamApp {
     if (sec.code === 'L') this.preload(sec.audio, audioStatus, () => {
       audioReady = true;
       update();
+      // Audio yuklangach server avtomatik boshlanish vaqtini qisqartiradi — yangi vaqtni olamiz.
+      get(`exam/${this.id}/state?client_id=${encodeURIComponent(this.clientId)}`)
+        .then((fresh) => {
+          if (fresh.section && fresh.section.code === 'L' && fresh.section.auto_start_ms) sec.auto_start_ms = fresh.section.auto_start_ms;
+        })
+        .catch(() => {});
     });
 
     startBtn.onclick = async () => {

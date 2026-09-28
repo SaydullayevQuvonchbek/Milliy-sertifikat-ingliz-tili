@@ -182,12 +182,36 @@ export class SpeakingRunner {
       try {
         return await post(`exam/${this.o.attemptId}/${path}`, { client_id: this.o.clientId, ...body });
       } catch (err) {
+        if (err instanceof ApiError && err.code === 'too_early') {
+          // Oldingi savol vaqti serverda hali tugamagan (masalan, sahifa yangilangandan keyin) — kutamiz.
+          const wait = Math.min(Number(err.data.wait_ms) || 1000, 600000) + 300;
+          await this.waitScreen(wait);
+          continue;
+        }
         if (!(err instanceof ApiError) || !err.isNetwork) throw err;
         setText(this.status, T.offline);
         await new Promise((r) => setTimeout(r, delay));
         delay = Math.min(delay * 2, 10000);
       }
     }
+  }
+
+  waitScreen(ms) {
+    const value = h('span', { class: 'cd-value' });
+    this.o.root.replaceChildren(h('div', { class: 'speaking-card center' },
+      h('p', { text: T.nextQuestionIn }),
+      h('div', { class: 'countdown' }, value)
+    ));
+    const end = performance.now() + ms;
+    return new Promise((resolve) => {
+      const loop = () => {
+        const left = end - performance.now();
+        setText(value, formatClock(left));
+        if (left <= 0) resolve();
+        else setTimeout(loop, 250);
+      };
+      loop();
+    });
   }
 
   enqueue(no, blob, duration) {

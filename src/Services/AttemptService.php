@@ -19,18 +19,22 @@ use PDOException;
  */
 final class AttemptService
 {
-    /** Muddatdan keyin ham saqlashni qabul qilish (sekin internet uchun). */
-    public const GRACE_MS = 90_000;
+    /** Muddatdan keyin ham saqlashni qabul qilish (sekin internet uchun). Qisqa: amalda qo'shimcha vaqt bo'lmasin. */
+    public const GRACE_MS = 45_000;
     /** Listening boshlanishidan oldingi 3-2-1 sanog'i. */
     public const LISTENING_LEAD_MS = 3_000;
     /** Birinchi bo'limni boshlash uchun beriladigan vaqt; o'tsa, bo'lim o'zi boshlanadi. */
     public const FIRST_START_WINDOW_MS = 30 * 60_000;
+    /** Listening audiosi yuklangandan keyin bo'lim ko'pi bilan shuncha vaqtda boshlanadi. */
+    public const AUDIO_PREVIEW_LIMIT_MS = 3 * 60_000;
     /** Shuncha vaqt aloqa bo'lmasa, qurilma "uzilgan" hisoblanadi. */
     public const STALE_CLIENT_MS = 45_000;
     public const SPEAKING_OVERHEAD_MS = 4_000;
-    public const SPEAKING_UPLOAD_GRACE_MS = 10 * 60_000;
+    public const SPEAKING_UPLOAD_GRACE_MS = 5 * 60_000;
+    /** Keyingi savolni ochishdagi soat farqi uchun zaxira. */
+    public const SPEAKING_NEXT_TOLERANCE_MS = 1_500;
     public const SPEAKING_ABANDON_MS = 30 * 60_000;
-    public const MAX_EVENTS_PER_REQUEST = 50;
+    public const MAX_EVENTS_PER_REQUEST = 100;
 
     public const VIOLATION_TYPES = ['focus_lost', 'fullscreen_exit', 'page_closed', 'device_takeover', 'multiple_tabs', 'devtools'];
     public const INFO_TYPES = [
@@ -115,7 +119,26 @@ final class AttemptService
         $wait = self::isFirstStage($a, $a['stage'])
             ? self::FIRST_START_WINDOW_MS
             : MockService::settings($mock)['break_sec'] * 1000;
-        return (int) $a['stage_since_ms'] + $wait;
+        $at = (int) $a['stage_since_ms'] + $wait;
+        $fetched = self::meta($a)['audio_fetch_ms'] ?? null;
+        if ($a['stage'] === 'L' && is_numeric($fetched)) {
+            $at = min($at, (int) $fetched + self::AUDIO_PREVIEW_LIMIT_MS);
+        }
+        return $at;
+    }
+
+    /** Listening kutish holatida audio birinchi marta yuklanganda vaqtni yozib qo'yish. */
+    public static function noteAudioFetch(array $a): array
+    {
+        if ($a['stage'] !== 'L' || $a['stage_state'] !== 'pending') {
+            return $a;
+        }
+        $meta = self::meta($a);
+        if (isset($meta['audio_fetch_ms'])) {
+            return $a;
+        }
+        $meta['audio_fetch_ms'] = Util::nowMs();
+        return self::persist($a, ['meta_json' => Util::json($meta)]);
     }
 
     // ---------------------------------------------------------------------
@@ -492,10 +515,11 @@ final class AttemptService
         }
         $mock ??= MockService::find((int) $a['mock_id']);
         $newViolations = 0;
+        // Qoidabuzarliklar birinchi ko'rib chiqiladi — ko'p ma'lumot hodisasi ularni "siqib chiqara" olmaydi.
+        $events = array_values(array_filter($events, 'is_array'));
+        usort($events, static fn ($x, $y) => (int) !in_array($x['type'] ?? '', self::VIOLATION_TYPES, true)
+            <=> (int) !in_array($y['type'] ?? '', self::VIOLATION_TYPES, true));
         foreach (array_slice($events, 0, self::MAX_EVENTS_PER_REQUEST) as $event) {
-            if (!is_array($event)) {
-                continue;
-            }
             $type = (string) ($event['type'] ?? '');
             $isViolation = in_array($type, self::VIOLATION_TYPES, true);
             if (!$isViolation && !in_array($type, self::INFO_TYPES, true)) {
@@ -509,9 +533,10 @@ final class AttemptService
                 continue;
             }
             $section = in_array($event['section'] ?? null, ['L', 'R', 'W', 'S'], true) ? $event['section'] : null;
-            // Imtihon tugagandan keyingi qoidabuzarliklar hisoblanmaydi.
-            $counted = $isViolation && $a['status'] === 'in_progress' && in_array($a['stage'], ['L', 'R', 'W', 'S'], true)
-                && ($a['stage_state'] === 'active');
+            // Hisoblanadi: imtihon davom etayotgan bo'lsa va hodisa bo'lim faol paytda sodir bo'lgan bo'lsa
+            // (internet uzilib, kechikib kelgan hodisa ham — mijoz uni "active" deb belgilaydi).
+            $happenedActive = $a['stage_state'] === 'active' || ($event['active'] ?? false) === true;
+            $counted = $isViolation && $a['status'] === 'in_progress' && $a['stage'] !== 'done' && $happenedActive;
             self::insertEvent($a, $type, $detail, $counted, $clientMs, $key, $section);
             if ($counted) {
                 $newViolations++;
@@ -655,6 +680,16 @@ final class AttemptService
         $begun = (array) ($meta['speaking']['begun'] ?? []);
         $questions = self::speakingQuestions($mock);
         $index = count($begun);
+        // Oldingi savol vaqti tugamaguncha keyingisi ochilmaydi (savollarni oldindan ko'rib bo'lmaydi).
+        if ($index > 0) {
+            $previous = $questions[$index - 1];
+            $readyAt = (int) $begun[(string) $previous['no']] + self::speakingWindowMs($previous)
+                - self::SPEAKING_OVERHEAD_MS - self::SPEAKING_NEXT_TOLERANCE_MS;
+            $wait = $readyAt - Util::nowMs();
+            if ($wait > 0) {
+                throw new HttpError(425, 'too_early', 'Oldingi savol vaqti hali tugamagan.', ['wait_ms' => $wait]);
+            }
+        }
         if (!isset($questions[$index])) {
             return [$a, null];
         }
@@ -688,8 +723,8 @@ final class AttemptService
         if (Db::val('SELECT COUNT(*) FROM speaking_answers WHERE attempt_id = ? AND q_no = ?', [$a['id'], $qNo])) {
             return $a; // Takroriy yuklash (qayta urinish) — birinchisi saqlanadi.
         }
-        if ($duration > (int) $question['answer_sec'] + 5) {
-            $duration = (float) $question['answer_sec'];
+        if ($duration > (int) $question['answer_sec'] + 10) {
+            throw new HttpError(422, 'too_long', 'Yozuv ruxsat etilgan vaqtdan uzun.');
         }
 
         $stored = Uploads::storeSpeaking($file, (int) $a['id'], $qNo);

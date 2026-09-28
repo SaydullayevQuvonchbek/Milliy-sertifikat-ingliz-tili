@@ -96,3 +96,14 @@ test('faol mockni faqat xatosiz holatda faollashtirish mumkin', function (): voi
     MockService::setStatus((int) $mock['id'], 'frozen', 1);
     eq('frozen', MockService::find((int) $mock['id'])['status']);
 });
+
+test('admin qidiruvi: pastki chiziq va foiz belgisi to\'g\'ri ishlaydi', function (): void {
+    App\Installer::createUser('student', 'Ali_Valiyev', '+998901234567', 'parol123');
+    App\Installer::createUser('student', 'Alixon Valiyev', '+998901234568', 'parol123');
+    $admin = make_user('admin', 'admin');
+    App\Auth::actAs($admin);
+    $request = new App\Http\Request('GET', '/admin/users', ['q' => 'ali_v', 'role' => 'student'], [], [], [], '127.0.0.1');
+    $result = App\Controllers\AdminUserController::list($request);
+    eq(1, $result['total']);
+    eq('Ali_Valiyev', $result['users'][0]['full_name']);
+});

@@ -131,9 +131,16 @@ export class Saver {
    * Hodisa (qoidabuzarlik yoki ma'lumot) — keyingi so'rov bilan serverga ketadi.
    * Har hodisaning o'z identifikatori bor: qayta yuborilsa ham server uni bir marta hisoblaydi.
    */
-  event(type, detail = '', urgent = false, section = null) {
+  event(type, detail = '', urgent = false, section = null, active = false) {
+    // Ma'lumot hodisalari (masalan, bloklangan o'ng tugma) bir turdan 3 soniyada bir martadan ko'p yozilmaydi.
+    if (!urgent) {
+      const now = Date.now();
+      this.lastInfo = this.lastInfo || {};
+      if (now - (this.lastInfo[type] || 0) < 3000) return;
+      this.lastInfo[type] = now;
+    }
     const id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-    this.events.push({ id, type, detail: String(detail).slice(0, 300), t: Date.now(), section: section || this.o.section || undefined });
+    this.events.push({ id, type, detail: String(detail).slice(0, 300), t: Date.now(), section: section || this.o.section || undefined, active });
     if (this.events.length > 200) this.events.splice(0, this.events.length - 200);
     writeJson(`mlm:${this.o.attemptId}:events`, this.events);
     this.schedule(urgent ? 0 : 5000);
@@ -154,7 +161,8 @@ export class Saver {
     clearTimeout(this.timer);
     this.inFlight = true;
     const sentSeq = this.seq;
-    const sentEvents = this.events.slice();
+    // Bir so'rovda ko'pi bilan 50 ta hodisa; qoidabuzarliklar birinchi navbatda.
+    const sentEvents = this.events.filter((e) => e.active).concat(this.events.filter((e) => !e.active)).slice(0, 50);
     const body = { client_id: this.o.clientId, events: sentEvents };
     if (this.dirty) {
       this.persistLocal();
@@ -164,8 +172,10 @@ export class Saver {
     try {
       const summary = await post(`exam/${this.o.attemptId}/sync`, body, { timeout: 15000 });
       this.retryDelay = 2000;
-      this.events.splice(0, sentEvents.length);
+      const sentIds = new Set(sentEvents.map((e) => e.id));
+      this.events = this.events.filter((e) => !sentIds.has(e.id));
       writeJson(`mlm:${this.o.attemptId}:events`, this.events);
+      if (this.events.length) this.again = true;
       if (body.seq !== undefined) {
         if (summary.accepted) this.ackedSeq = Math.max(this.ackedSeq, sentSeq);
         else if (summary.stage === this.o.section && summary.stage_state === 'active' && summary.save_seq >= sentSeq) {

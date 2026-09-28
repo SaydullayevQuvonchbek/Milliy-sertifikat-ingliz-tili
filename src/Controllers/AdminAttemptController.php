@@ -88,18 +88,21 @@ final class AdminAttemptController
         if (mb_strlen($reason) < 5) {
             throw new HttpError(422, 'validation', 'Bekor qilish sababini yozing.');
         }
-        $a = AttemptService::lock($id);
-        foreach (Db::all('SELECT file FROM speaking_answers WHERE attempt_id = ?', [$id]) as $row) {
-            @unlink(Uploads::speakingPath($row['file']));
-        }
-        Db::tx(static function () use ($a, $id): void {
+        [$a, $files] = Db::tx(static function () use ($id): array {
+            $a = AttemptService::lock($id);
+            $files = array_column(Db::all('SELECT file FROM speaking_answers WHERE attempt_id = ?', [$id]), 'file');
             Db::exec('DELETE FROM attempts WHERE id = ?', [$id]);
             // Keyingi urinishlarning tartib raqamini siljitamiz, toki chegara to'g'ri ishlasin.
             Db::exec(
                 'UPDATE attempts SET attempt_no = attempt_no - 1 WHERE mock_id = ? AND user_id = ? AND attempt_no > ?',
                 [$a['mock_id'], $a['user_id'], $a['attempt_no']]
             );
+            return [$a, $files];
         });
+        // Fayllar faqat baza o'zgarishi muvaffaqiyatli yakunlangandan keyin o'chiriladi.
+        foreach ($files as $file) {
+            @unlink(Uploads::speakingPath($file));
+        }
         Audit::log((int) $admin['id'], 'attempt_reset', 'attempt:' . $id, [
             'user_id' => (int) $a['user_id'],
             'mock_id' => (int) $a['mock_id'],

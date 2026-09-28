@@ -25,6 +25,10 @@ final class ExamController
         return Db::tx(static function () use ($r, $user, $id, $fn, $requireClient): array {
             $a = AttemptService::ownedBy($user, $id);
             $mock = MockService::find((int) $a['mock_id']);
+            // SEB va telefon cheklovi imtihon davomidagi har so'rovda tekshiriladi (brauzer almashtirib bo'lmaydi).
+            if ($a['status'] === 'in_progress') {
+                StudentController::assertDevice($r, $mock);
+            }
             if ($requireClient) {
                 AttemptService::assertClient($a, $r->str('client_id'));
             }
@@ -97,11 +101,18 @@ final class ExamController
     public static function audio(Request $r): FileResponse
     {
         $user = Auth::require('student');
-        $a = AttemptService::ownedBy($user, (int) $r->param('id'));
-        $mock = MockService::find((int) $a['mock_id']);
-        if ($a['status'] !== 'in_progress' || $a['stage'] !== 'L') {
-            throw new HttpError(403, 'forbidden', "Audio faqat Listening bo'limida mavjud.");
-        }
+        $attemptId = (int) $r->param('id');
+        [$mock] = Db::tx(static function () use ($user, $attemptId, $r): array {
+            $a = AttemptService::ownedBy($user, $attemptId);
+            $mock = MockService::find((int) $a['mock_id']);
+            if ($a['status'] !== 'in_progress' || $a['stage'] !== 'L') {
+                throw new HttpError(403, 'forbidden', "Audio faqat Listening bo'limida mavjud.");
+            }
+            StudentController::assertDevice($r, $mock);
+            // Audio oldindan yuklangan bo'lsa, bo'lim uzoq kutib turmaydi (audioni oldindan tinglab bo'lmasin).
+            AttemptService::noteAudioFetch($a);
+            return [$mock];
+        });
         $assetId = (int) $r->param('asset');
         $allowed = array_column(AttemptService::listeningAudioManifest(Util::decode($mock['content_json'])), 'asset');
         if (!in_array($assetId, $allowed, true)) {
