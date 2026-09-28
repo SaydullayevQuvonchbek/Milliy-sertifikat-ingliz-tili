@@ -286,6 +286,39 @@ try {
     assert(res.status === 403 && res.body.error.code === 'mock_frozen', 'muzlatilgan mock boshlandi: ' + JSON.stringify(res));
   });
 
+  await step('ekspert Writing va Speaking ishini admin panelda baholaydi', async () => {
+    const ap = await adminCtx.newPage();
+    ap.on('pageerror', (e) => pageErrors.push('admin: ' + e.message));
+    ap.on('dialog', (d) => d.accept());
+    await ap.goto(`${base}/admin/#/grading`);
+    await ap.locator('h1', { hasText: 'Ekspert tekshiruvi' }).waitFor();
+    for (const skill of ['Writing', 'Speaking']) {
+      await ap.locator('.stat', { hasText: `${skill} navbati` }).getByRole('button', { name: 'Keyingi ish' }).click();
+      await ap.locator('.rubric').waitFor();
+      const selects = ap.locator('.rubric .band-select');
+      const count = await selects.count();
+      for (let i = 0; i < count; i += 1) await selects.nth(i).selectOption('3');
+      await ap.locator('.rubric textarea').fill('Yaxshi harakat.');
+      await ap.getByRole('button', { name: 'Saqlash', exact: true }).click();
+      await ap.locator('.rubric').waitFor({ state: 'detached' });
+    }
+    const res = await call('GET', `admin/mocks/${mockId}/attempts`);
+    const a = res.attempts[0];
+    assert(a.grade_w === 'done' && a.grade_s === 'done', 'baholash tugamadi');
+    assert(a.w_raw === 3 && a.s_raw === 3, `xom ballar: W ${a.w_raw}, S ${a.s_raw}`);
+    assert(a.overall !== null && a.level, 'umumiy ball hisoblanmadi');
+    await ap.close();
+  });
+
+  await step("o'quvchi natijasini va ekspert izohini ko'radi", async () => {
+    await page.goto(`${base}/#/`);
+    await page.locator('.table a', { hasText: "Natijani ko'rish" }).first().click();
+    await page.locator('.overall-value').waitFor();
+    const text = await page.locator('main').innerText();
+    assert(text.includes('Yaxshi harakat.'), 'ekspert izohi ko\'rinmadi');
+    assert(!text.includes('lead') && !text.includes('seven'), "kalit o'quvchiga ko'rsatilmasligi kerak");
+  });
+
   assert(pageErrors.length === 0, 'Brauzer xatolari:\n' + pageErrors.join('\n'));
   console.log('\nBarcha E2E qadamlari muvaffaqiyatli o\'tdi.');
 } catch (err) {

@@ -2,7 +2,7 @@
 // Sahifalar faqat manzil (#/...) o'zgarganda almashadi — hech qachon o'z-o'zidan qayta yuklanmaydi.
 
 import { ApiError, get, post, setCsrf } from '../lib/api.js';
-import { h, icon } from '../lib/dom.js';
+import { h, icon, mount } from '../lib/dom.js';
 import { formatDate, formatScore, levelLabel } from '../lib/text.js';
 import { errorBox, modal, spinner, toast } from '../lib/ui.js';
 import { SECTION, T } from '../lib/uz.js';
@@ -328,7 +328,7 @@ async function renderResult(id) {
       h('h3', { text: `${T.expertComments}: ${SECTION[skill]}` }),
       list.map((c) => h('p', { class: 'comment', text: c }))
     ));
-    body.replaceChildren(
+    mount(body,
       h('div', { class: 'card result-hero' },
         h('div', null, h('p', { class: 'eyebrow', text: T.attemptN(r.attempt_no) }), h('h1', { text: r.title }),
           r.status === 'terminated' ? h('p', { class: 'status status-terminated', text: T.statusTerminated }) : null),

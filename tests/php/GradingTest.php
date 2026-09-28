@@ -136,3 +136,19 @@ test('kalitga muqobil javob qo\'shilsa, ballar qayta hisoblanadi', function (): 
     $items = ScoreService::itemAnalysis((int) $mock['id']);
     eq(1, $items['L'][1]['correct']);
 });
+
+test('qisqa mock: faqat mavjud topshiriqlar baholanadi, ball mutanosib o\'tkaziladi', function (): void {
+    $source = sample_source();
+    $source['writing']['parts'] = [['title' => 'Part 1', 'context' => '', 'tasks' => [['id' => '1.1', 'title' => 'Task 1.1', 'prompt' => 'Write.', 'min_words' => 10]]]];
+    $mock = make_mock(['source' => $source, 'settings' => ['sections' => ['W'], 'grading' => ['raters' => 1]]]);
+    eq(['1.1' => 5], G::rubric($mock, 'W'));
+    $a = writing_attempt($mock, '+998901110001', ['1.1' => 'Some words here']);
+    $e = make_user('expert', 'expert1');
+    $work = G::next($e, 'W');
+    eq([['part' => '1.1', 'max' => 5]], $work['rubric']);
+    G::rate($e, (int) $a['id'], 'W', ['1.1' => 3], [], '');
+    $row = Db::one('SELECT w_raw, w_score FROM attempts WHERE id = ?', [$a['id']]);
+    near(3.0, (float) $row['w_raw']);
+    // 3/5 × 16 = 9.6 → 9.5 → 51
+    eq(51.0, (float) $row['w_score']);
+});

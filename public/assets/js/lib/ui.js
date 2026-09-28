@@ -32,9 +32,13 @@ export function modal({ title, body = '', actions = [{ label: 'Yopish', value: n
       done = true;
       backdrop.remove();
       document.removeEventListener('keydown', onKey, true);
-      if (previous && previous.focus) previous.focus();
+      window.removeEventListener('hashchange', onHash);
+      if (previous && previous.focus && previous.isConnected) previous.focus();
       resolve(value);
     };
+    // Modal ichidagi havola bosilsa (sahifa almashsa), oyna yopiladi.
+    const onHash = () => close(null);
+    window.addEventListener('hashchange', onHash);
     const onKey = (e) => {
       if (e.key === 'Escape' && dismissible) {
         e.preventDefault();

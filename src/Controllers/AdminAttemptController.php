@@ -30,7 +30,7 @@ final class AdminAttemptController
         $answers = Util::decode($a['answers_json']);
 
         $review = [];
-        foreach (['L', 'R'] as $code) {
+        foreach (array_intersect(['L', 'R'], AttemptService::sequence($a)) as $code) {
             foreach ($key[$code] ?? [] as $n => $item) {
                 $given = (string) ($answers[$code][(string) $n] ?? '');
                 $review[$code][] = [
@@ -44,8 +44,12 @@ final class AdminAttemptController
         }
 
         $writing = [];
-        foreach (Util::decode($a['writing_json']) as $task => $text) {
-            $writing[] = ['task' => (string) $task, 'text' => (string) $text, 'words' => Util::wordCount((string) $text)];
+        $texts = Util::decode($a['writing_json']);
+        foreach (AttemptService::writingTaskIds($mock) as $task) {
+            if (array_key_exists($task, $texts)) {
+                $text = (string) $texts[$task];
+                $writing[] = ['task' => $task, 'text' => $text, 'words' => Util::wordCount($text)];
+            }
         }
 
         $ratings = Db::all(

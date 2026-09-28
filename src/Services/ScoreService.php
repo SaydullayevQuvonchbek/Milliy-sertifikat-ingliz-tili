@@ -69,7 +69,11 @@ final class ScoreService
             }
             if ($raw !== null) {
                 $changes[$prefix . '_raw'] = $raw;
-                $changes[$prefix . '_score'] = $code === 'W' ? Scoring::writing75($raw) : Scoring::speaking75($raw);
+                // Qisqa mockda (qismlar kam) xom ball rasmiy maksimumga mutanosib o'tkaziladi.
+                $max = array_sum(GradingService::rubric($mock, $code));
+                $official = GradingService::officialMax($code);
+                $scaled = $max > 0 && $max !== $official ? $raw * $official / $max : $raw;
+                $changes[$prefix . '_score'] = $code === 'W' ? Scoring::writing75($scaled) : Scoring::speaking75($scaled);
             }
             $scores[] = $changes[$prefix . '_score'];
         }

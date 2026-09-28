@@ -27,6 +27,36 @@ final class GradingService
     /** Maxsus holatlar: mavzuga mos emas, yodlangan, ko'chirilgan, asosan ona tilida. */
     public const FLAGS = ['off_topic', 'memorized', 'copied', 'mother_tongue'];
 
+    /**
+     * Mockdagi mavjud topshiriq/qismlar bo'yicha mezon. Rasmiy formatda — to'liq RUBRIC;
+     * qisqa (sinov) mockda faqat bor qismlar baholanadi.
+     * @return array<string,int>
+     */
+    public static function rubric(array $mock, string $skill): array
+    {
+        $content = Util::decode($mock['content_json']);
+        $ids = [];
+        if ($skill === 'W') {
+            foreach ($content['writing']['parts'] ?? [] as $part) {
+                foreach ($part['tasks'] ?? [] as $task) {
+                    $ids[] = (string) $task['id'];
+                }
+            }
+        } else {
+            foreach ($content['speaking']['parts'] ?? [] as $part) {
+                $ids[] = (string) $part['id'];
+            }
+        }
+        $rubric = array_filter(self::RUBRIC[$skill], static fn ($key) => in_array((string) $key, $ids, true), ARRAY_FILTER_USE_KEY);
+        return $rubric !== [] ? $rubric : self::RUBRIC[$skill];
+    }
+
+    /** Rasmiy maksimum (Writing 16, Speaking 21). */
+    public static function officialMax(string $skill): int
+    {
+        return (int) array_sum(self::RUBRIC[$skill]);
+    }
+
     public static function ratings(int $attemptId, string $skill): array
     {
         return Db::all('SELECT * FROM ratings WHERE attempt_id = ? AND skill = ? ORDER BY round, id', [$attemptId, $skill]);
@@ -153,7 +183,12 @@ final class GradingService
             'attempt_id' => $attemptId,
             'code' => $a['anon_code'],
             'skill' => $skill,
-            'rubric' => self::RUBRIC[$skill],
+            // Ro'yxat ko'rinishida: JSON obyektida "2" kaliti "1.1" dan oldin kelib qolmasligi uchun.
+            'rubric' => array_map(
+                static fn ($part, $max) => ['part' => (string) $part, 'max' => $max],
+                array_keys(self::rubric($mock, $skill)),
+                array_values(self::rubric($mock, $skill))
+            ),
             'flags' => self::FLAGS,
             'claim_expires_ms' => $claim['expires_ms'] ?? null,
         ];
@@ -232,10 +267,12 @@ final class GradingService
                 throw new HttpError(409, 'already_rated', 'Siz bu ishni allaqachon baholagansiz.');
             }
 
+            $mock = MockService::find((int) $a['mock_id']);
             $writing = $skill === 'W' ? Util::decode($a['writing_json']) : [];
             $cleanScores = [];
             $cleanFlags = [];
-            foreach (self::RUBRIC[$skill] as $part => $max) {
+            foreach (self::rubric($mock, $skill) as $part => $max) {
+                $part = (string) $part;
                 $value = $scores[$part] ?? null;
                 if (!is_numeric($value) || (int) $value != $value || (int) $value < 0 || (int) $value > $max) {
                     throw new HttpError(422, 'validation', "{$part} uchun ball 0 dan {$max} gacha butun son bo'lishi kerak.");
@@ -270,7 +307,6 @@ final class GradingService
             ]);
             Db::exec('DELETE FROM grading_claims WHERE attempt_id = ? AND skill = ? AND expert_id = ?', [$attemptId, $skill, $expert['id']]);
 
-            $mock = MockService::find((int) $a['mock_id']);
             if (self::finalRaw($attemptId, $skill, MockService::settings($mock)) !== null) {
                 Db::update('attempts', [$col => 'done'], 'id = ?', [$attemptId]);
                 $a[$col] = 'done';
