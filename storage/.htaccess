@@ -1,0 +1,3 @@
+# Bu papkadagi fayllar (baza, audio, yozuvlar) hech qachon to'g'ridan-to'g'ri ochilmasligi kerak.
+Require all denied
+Deny from all

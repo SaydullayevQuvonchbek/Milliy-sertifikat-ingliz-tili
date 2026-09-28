@@ -1,0 +1,9 @@
+/config/config.php
+/storage/*
+!/storage/.htaccess
+!/storage/README.md
+/node_modules/
+/test-results/
+/playwright-report/
+.DS_Store
+*.log

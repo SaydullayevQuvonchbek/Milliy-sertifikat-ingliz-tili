@@ -1,0 +1,23 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "camera=(), geolocation=(), microphone=(self), fullscreen=(self)"
+    <FilesMatch "\.(html|js|css)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+    <FilesMatch "sw\.js$">
+        Header set Service-Worker-Allowed "/"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType application/javascript .js .mjs
+    AddType application/manifest+json .webmanifest
+</IfModule>
