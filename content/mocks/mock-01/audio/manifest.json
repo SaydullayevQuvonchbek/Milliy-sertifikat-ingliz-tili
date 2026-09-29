@@ -1,0 +1,132 @@
+{
+  "l1_1": {
+    "duration": 38.808,
+    "hash": "a6a72822b241edfbf55d9c1b71d207b182bc8a5d",
+    "label": "Conversation 1"
+  },
+  "l1_2": {
+    "duration": 27.648,
+    "hash": "000353dd66de732b2b53a216a7731301dd48342f",
+    "label": "Conversation 2"
+  },
+  "l1_3": {
+    "duration": 29.832,
+    "hash": "0720ad560e38dec77dfd571b6f978f63f2544380",
+    "label": "Conversation 3"
+  },
+  "l1_4": {
+    "duration": 28.848,
+    "hash": "c2eee4a360b06a16d64436722db588defdb44f9d",
+    "label": "Conversation 4"
+  },
+  "l1_5": {
+    "duration": 31.416,
+    "hash": "2fe23b9c0b1d036742e884fc0d95e85428c7900e",
+    "label": "Conversation 5"
+  },
+  "l1_6": {
+    "duration": 29.448,
+    "hash": "642c7b3ebb051206cd6c1e014f3e5ee56bb98fc4",
+    "label": "Conversation 6"
+  },
+  "l1_7": {
+    "duration": 27.528,
+    "hash": "c769ce683fc6d065b1102d9272690a9587fb58c6",
+    "label": "Conversation 7"
+  },
+  "l1_8": {
+    "duration": 34.68,
+    "hash": "3ae6699febfac06e2d5e943cfaa9e3a82072d46e",
+    "label": "Conversation 8"
+  },
+  "l2": {
+    "duration": 128.592,
+    "hash": "dc335153dad97fec044d2e15b30ef6cf83c44447",
+    "label": "Talk"
+  },
+  "l3_1": {
+    "duration": 28.128,
+    "hash": "c3bf0e048d4a1d85a1f7646bd07a8ef3780b63cb",
+    "label": "Speaker 1"
+  },
+  "l3_2": {
+    "duration": 30.864,
+    "hash": "500dcd7b96b8a199cbaaac920720b66ab169fa22",
+    "label": "Speaker 2"
+  },
+  "l3_3": {
+    "duration": 24.864,
+    "hash": "61b448a14c7836cc9926dc5562b4afb7f42fbb2a",
+    "label": "Speaker 3"
+  },
+  "l3_4": {
+    "duration": 31.92,
+    "hash": "54b270fb2bbea1fd6ad05a6fb7a603b7c6597a36",
+    "label": "Speaker 4"
+  },
+  "l4": {
+    "duration": 126.144,
+    "hash": "5fa2a10d63b647fd355baed796c212256f248102",
+    "label": "Talk"
+  },
+  "l5_1": {
+    "duration": 69.624,
+    "hash": "d806a96513ccb5e6eea15edd75389ce0cdd5ff50",
+    "label": "Conversation 1"
+  },
+  "l5_2": {
+    "duration": 54.984,
+    "hash": "9b645b5524301e134a35c24e954cb0a112725988",
+    "label": "Conversation 2"
+  },
+  "l5_3": {
+    "duration": 64.944,
+    "hash": "6382c2f2d69abf7cffef3d9747d489258aa261ed",
+    "label": "Conversation 3"
+  },
+  "l6": {
+    "duration": 161.184,
+    "hash": "4d910cd2a755ac682042e33ab0e1f7d9d073da44",
+    "label": "Lecture"
+  },
+  "sq1": {
+    "duration": 12.84,
+    "hash": "7eed1d5e0a35981c8b3be5a35cddf24f5eb034ed",
+    "label": "Examiner: Question 1"
+  },
+  "sq2": {
+    "duration": 7.056,
+    "hash": "cbcc6db9a250598fc9d81b4a48b67e10ef98f588",
+    "label": "Examiner: Question 2"
+  },
+  "sq3": {
+    "duration": 6.936,
+    "hash": "a7bbc5623ee2e02d23fe5bb0121f5a7660e4166f",
+    "label": "Examiner: Question 3"
+  },
+  "sq4": {
+    "duration": 14.424,
+    "hash": "720162eb835b0dcb4fef59d0e30939cbe5714133",
+    "label": "Examiner: Question 4"
+  },
+  "sq5": {
+    "duration": 7.704,
+    "hash": "ee267f632a849e1d05fb1ff7023d5431ef9dfc43",
+    "label": "Examiner: Question 5"
+  },
+  "sq6": {
+    "duration": 5.88,
+    "hash": "6aa37c72ceaf111a3c8f4993de4bbc530b622868",
+    "label": "Examiner: Question 6"
+  },
+  "sq7": {
+    "duration": 24.216,
+    "hash": "c33ad6b1ce7b73dc92be103e258c0870f0a3ccef",
+    "label": "Examiner: Question 7"
+  },
+  "sq8": {
+    "duration": 20.472,
+    "hash": "40cded29409421911da255bcea292c5191562df2",
+    "label": "Examiner: Question 8"
+  }
+}

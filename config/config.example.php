@@ -29,6 +29,9 @@ return [
     // true — faqat HTTPS; false — HTTP ham; 'auto' — so'rovga qarab.
     'secure_cookies' => 'auto',
 
+    // Parol xeshi narxi (bcrypt cost, 10–14). Kattasi xavfsizroq, lekin imtihon boshida ommaviy kirishni sekinlashtiradi.
+    'password_cost' => 10,
+
     'timezone' => 'Asia/Tashkent',
 
     // Sayt teskari proksi (Cloudflare, Nginx) ortida bo'lsa, haqiqiy IP shu sarlavhadan olinadi

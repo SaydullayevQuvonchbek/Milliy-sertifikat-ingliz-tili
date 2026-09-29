@@ -29,7 +29,7 @@ if ($login !== null) {
     $exists = Db::one('SELECT id FROM users WHERE login = ?', [strtolower((string) $login)]);
     if ($exists) {
         Db::exec('UPDATE users SET password_hash = ?, role = ?, status = ? WHERE id = ?', [
-            password_hash((string) $password, PASSWORD_DEFAULT), 'admin', 'active', $exists['id'],
+            App\Auth::hash((string) $password), 'admin', 'active', $exists['id'],
         ]);
         echo "Administrator paroli yangilandi: {$login}\n";
     } else {

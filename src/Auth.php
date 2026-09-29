@@ -147,17 +147,37 @@ final class Auth
         if ($user['status'] !== 'active') {
             throw new HttpError(403, 'blocked', 'Hisobingiz bloklangan. Administratorga murojaat qiling.');
         }
-        if (password_needs_rehash((string) $user['password_hash'], PASSWORD_DEFAULT)) {
-            Db::exec('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $user['id']]);
+        if (self::needsRehash((string) $user['password_hash'])) {
+            Db::exec('UPDATE users SET password_hash = ? WHERE id = ?', [self::hash($password), $user['id']]);
         }
         Db::exec('DELETE FROM login_throttle WHERE throttle_key = ?', [$key]);
         return $user;
     }
 
+    /**
+     * Parol xeshi. Narx (cost) qat'iy belgilanadi: PHP 8.4 standart narxni 10 dan 12 ga ko'targan (~250 ms/xesh),
+     * imtihon boshlanishida yuzlab o'quvchi bir vaqtda kirganda bu kutishni ~4 baravar oshiradi.
+     * 10 — OWASP tavsiya etgan eng kam narx; config'da 'password_cost' bilan oshirish mumkin (10–14).
+     */
+    public static function hash(string $password): string
+    {
+        return password_hash($password, PASSWORD_BCRYPT, ['cost' => self::cost()]);
+    }
+
+    private static function needsRehash(string $hash): bool
+    {
+        return password_needs_rehash($hash, PASSWORD_BCRYPT, ['cost' => self::cost()]);
+    }
+
+    private static function cost(): int
+    {
+        return max(10, min(14, (int) Config::get('password_cost', 10)));
+    }
+
     private static function dummyHash(): string
     {
         static $hash = null;
-        return $hash ??= password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT);
+        return $hash ??= self::hash(bin2hex(random_bytes(12)));
     }
 
     /**

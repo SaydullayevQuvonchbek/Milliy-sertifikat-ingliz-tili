@@ -12,15 +12,61 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo_sqlite, mbstring, intl, fileinfo, gd
+          extensions: pdo_sqlite, mbstring, intl, fileinfo, gd, zip
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: PHP sintaksisi
-        run: find src public bin tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+        run: find src public bin tests content -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
       - name: JS sintaksisi
         run: for f in $(find public/assets/js -name '*.js'); do node --check "$f"; done
-      - name: PHP testlari
+      - name: PHP testlari (SQLite; tayyor mocklar ham tekshiriladi)
         run: php tests/php/run.php
       - name: JS testlari
         run: node --test tests/js/*.test.mjs
+
+  mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: mlmock_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      MOCK_TEST_DB: mysql
+      MOCK_TEST_MYSQL_HOST: 127.0.0.1
+      MOCK_TEST_MYSQL_USER: root
+      MOCK_TEST_MYSQL_PASS: root
+      MOCK_TEST_MYSQL_DB: mlmock_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, intl, fileinfo, gd, zip
+      - name: PHP testlari (MySQL)
+        run: php tests/php/run.php
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, intl, fileinfo, gd, zip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Brauzerda to'liq ssenariy
+        run: npm run test:e2e
+      - name: Tayyor mocklar brauzerda (audio, rasmlar, savollar)
+        run: npm run test:content
+      - name: Yuklama sinovi (60 o'quvchi)
+        run: node tests/load/run.mjs --students 60 --seconds 20 --workers 4

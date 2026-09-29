@@ -125,20 +125,13 @@ Ko'p o'quvchi bir vaqtda ishlaydigan server uchun MySQL tavsiya etiladi (`'drive
 uchun yetarli. Ikkalasi ham sinalgan: barcha testlar SQLite va MariaDB 10.11 da o'tadi; 150 o'quvchi bir vaqtda
 ishlaganda (yuklama sinovi) ikkala bazada ham xato yo'q, javoblarni saqlash so'rovi p95 < 100 ms.
 
-**Kirish (login) CPU'ni band qiladi** (parol xeshi ataylab sekin). 150 o'quvchi bir soniyada kirsa, oxirgisi bir necha
-soniya kutadi — o'quvchilarni 5–10 daqiqa oralig'ida kiritish yoki oldindan kirib turishni so'rash tavsiya etiladi.
+**Kirish (login) CPU'ni band qiladi** (parol xeshi ataylab sekin; narxi `config.php` dagi `password_cost`, standart 10).
+4 yadroli mashinada 150 o'quvchi bir vaqtda kirganda o'rtacha kutish ≈ 1,6 s, eng sekini ≈ 3,5 s — imtihon boshlanishida
+o'quvchilarni 5–10 daqiqa oralig'ida kiritish yoki oldindan kirib turishni so'rash tavsiya etiladi. Imtihon davomidagi
+so'rovlar (javoblarni saqlash) engil: p95 < 20 ms.
 
 **Teskari proksi (Cloudflare, Nginx)** ortida `config.php` da `'client_ip_header' => 'HTTP_CF_CONNECTING_IP'` (yoki
 `HTTP_X_FORWARDED_FOR`) ko'rsating, aks holda kirish/ro'yxatdan o'tish cheklovlari hamma o'quvchini bitta IP deb hisoblaydi.
-
-### Zaxira nusxa
-
-```bash
-php bin/backup.php --keep=14        # baza + audio/rasmlar/Speaking yozuvlari → storage/backups/backup-<sana>.zip
-```
-
-Cron (har kecha 03:30): `30 3 * * * php /yo'l/bin/backup.php --keep=14`. SQLite'da imtihon davomida ham xavfsiz;
-MySQL'da `mysqldump` kerak. Tiklash: ZIP'ni oching, `database.sqlite` (yoki `dump.sql`) va `uploads/` ni joyiga qo'ying.
 
 ### Nginx
 
@@ -157,6 +150,15 @@ add_header X-Content-Type-Options nosniff always;
 add_header Permissions-Policy "camera=(), geolocation=(), microphone=(self), fullscreen=(self)" always;
 ```
 
+### Zaxira nusxa
+
+```bash
+php bin/backup.php --keep=14        # baza + audio/rasmlar/Speaking yozuvlari → storage/backups/backup-<sana>.zip
+```
+
+Cron (har kecha 03:30): `30 3 * * * php /yo'l/bin/backup.php --keep=14`. SQLite'da imtihon davomida ham xavfsiz;
+MySQL'da `mysqldump` kerak. Tiklash: ZIP'ni oching, `database.sqlite` (yoki `dump.sql`) va `uploads/` ni joyiga qo'ying.
+
 ---
 
 ## Mock qo'shish (qisqa yo'riqnoma)
@@ -174,13 +176,43 @@ xatboshi belgisi `[A]` yoki `[7]` bilan boshlanadi, bo'sh joy `[[9]]`.
 
 ---
 
+## Tayyor mocklar
+
+`content/mocks/` da rasmiy formatdagi **3 ta to'liq mock** bor (`bin/install.php --content` yoki `php bin/seed-content.php`
+bilan joylanadi). Barcha matnlar, savollar va audio skriptlari shu loyiha uchun original yozilgan.
+
+| Mock | Mavzular | Listening (audio / imtihon jadvali) |
+| --- | --- | --- |
+| Multilevel Mock 1 | ta'lim, texnologiya, sayohat, shahar hayoti | 16.2 daq / 39.7 daq |
+| Multilevel Mock 2 | tabiat, ish va kasb, tarix va madaniyat, ko'ngillilik | 17.7 daq / 42.7 daq |
+| Multilevel Mock 3 | fan, ovqat va turmush, sport, ommaviy axborot | 15.4 daq / 38.2 daq |
+
+Har bir mock: Listening 6 qism / 35 savol (har yozuv ikki marta eshittiriladi), Reading 5 qism / 35 savol, Writing 3 topshiriq,
+Speaking 8 savol (savollar ekzaminator ovozida o'qiladi) va 3 ta rasm. Qiyinlik B1 dan C1 gacha oshib boradi.
+
+- **Audio** — Kokoro neyron TTS (ochiq litsenziya) bilan sintez qilingan, turli amerikacha va inglizcha ovozlar. Tayyor `.mp3`
+  fayllar repoda, shuning uchun oddiy o'rnatishda TTS kerak emas. Diktor yozuvi bilan almashtirish istalsa: admin panelda
+  **Fayllar** bo'limidan yuklang (transkriptlar admin panelda turibdi).
+- **Rasmlar** — SVG'da chizilgan illyustratsiyalar (fotosurat emas); istalgan payt admin paneldan almashtiriladi.
+- **Sifat nazorati** — har mockning kaliti savol-savol dalillar bilan tekshirilgan (to'g'ri javob variantlari A–D bo'yicha
+  teng taqsimlangan, muqobil javoblar kiritilgan); `php bin/check-content.php` xato ham, ogohlantirish ham bermaydi.
+  Audio talaffuzi quloq bilan tekshirilmagan (inson tinglab ko'rishi tavsiya etiladi — ayniqsa ism va joy nomlari).
+- Yangi mock yaratish, audioni qayta sintez qilish: `content/README.md`.
+
 ## Testlar
 
 ```bash
-php tests/php/run.php            # 50 ta PHP testi: baholash, Rasch, urinishlar chegarasi, muzlatish, taymerlar, ekspertlar
+php tests/php/run.php            # 56 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, tayyor mocklar
+MOCK_TEST_DB=mysql php tests/php/run.php   # xuddi shular MySQL/MariaDB da (MOCK_TEST_MYSQL_HOST/PORT/DB/USER/PASS; bazani tozalaydi!)
 node --test tests/js/*.test.mjs  # JS testlari: Listening vaqt jadvali (server bilan bir xil), so'z sanash
-npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright): o'quvchi, admin va ekspert
+npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright): o'quvchi, admin va ekspert  (MOCK_E2E_DB=mysql ham mumkin)
+npm run test:content             # tayyor 3 mock brauzerda: 78 audio ochiladi va davomiyligi mos, rasmlar, Range, javob kaliti sirtqi
+npm run test:load -- --students 150   # yuklama sinovi: ko'p o'quvchi bir vaqtda ishlaydi (MOCK_LOAD_DB=mysql ham mumkin)
 ```
+
+Barchasi GitHub Actions'da ham ishlaydi (SQLite, MySQL, E2E, tayyor mocklar, yuklama). Sinalmagan: Firefox va Safari
+(Playwright brauzerlari faqat Chromium'da sinalgan); Keyboard Lock API faqat Chrome/Edge'da ishlaydi, boshqalarida
+lockdown qolgan qoidalar bilan ishlaydi.
 
 ## Tuzilma
 
@@ -194,13 +226,14 @@ public/                 veb-ildiz
   assets/js/admin/      boshqaruv paneli
 src/                    PHP: marshrutlar, kontrollerlar, xizmatlar (urinishlar, baholash, Rasch, ekspertlar)
 database/               SQLite va MySQL sxemalari
-bin/                    o'rnatish, namunaviy ma'lumotlar, lokal server marshrutlovchisi
-demo/                   namunaviy mocklar
-tests/                  PHP, JS va E2E testlar
+content/                tayyor mocklar (mocks/mock-01…03: savollar, audio, rasmlar), TTS va rasm vositalari (tools/)
+bin/                    o'rnatish, tayyor/namunaviy mocklarni joylash, zaxira nusxa, lokal server marshrutlovchisi
+demo/                   namunaviy (sinov uchun) mocklar
+tests/                  PHP, JS, E2E, tayyor mocklar va yuklama testlari
 storage/                baza, audio, rasmlar, Speaking yozuvlari (git'ga qo'shilmaydi)
 ```
 
-## Keyingi bosqichlar (rejadan)
+## Rejada (hozircha kerak emas)
 
 - Markaz (qog'oz) rejimi: Listening/Reading titullari va OMR skaner, Writing sahifalarini rasmga olish.
 - Speaking uchun Telegram bot orqali voice xabar bilan topshirish (zaxira kanal).

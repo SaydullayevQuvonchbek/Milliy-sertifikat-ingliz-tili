@@ -30,7 +30,7 @@ final class Installer
             'full_name' => $fullName,
             'login' => Util::normalizeLogin($login),
             'phone' => $phone,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'password_hash' => Auth::hash($password),
             'status' => 'active',
             'created_at' => time(),
         ]);

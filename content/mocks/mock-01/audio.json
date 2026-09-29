@@ -1,0 +1,252 @@
+{
+  "defaults": {"speed": 0.95, "turn_gap": 0.5, "lead": 0.5, "tail": 0.7},
+  "voices": {"N": "bf_emma", "M": "am_michael", "W": "af_heart"},
+  "tracks": {
+    "l1_1": {
+      "label": "Conversation 1",
+      "voices": {"W": "af_nicole", "M": "bm_daniel"},
+      "script": [
+        ["N", "Conversation one."],
+        ["W", "Hello, I'd like a ticket to Samarkand for tomorrow, please. Is there a train at about eight?"],
+        ["M", "The fast train leaves at seven forty, but I'm afraid it's full. The next one is at nine fifteen."],
+        ["W", "Oh, that's a bit late. Is there anything earlier?"],
+        ["M", "Only the slow train at six ten."],
+        ["W", "No, that's too early for me. I'll take the nine fifteen, then."],
+        ["M", "Certainly. Could I see your passport, please?"]
+      ]
+    },
+    "l1_2": {
+      "label": "Conversation 2",
+      "voices": {"W": "bf_isabella", "M": "am_adam"},
+      "script": [
+        ["N", "Conversation two."],
+        ["M", "Have you finished the history essay yet, Dilya? It's due on Friday, isn't it?"],
+        ["W", "It was, but Professor Karimov has moved the deadline to Monday. The library computers weren't working all week."],
+        ["M", "Oh, that's a relief. I've only written half of it."],
+        ["W", "Me too. But I'm going to finish mine this weekend, so I can relax on Sunday."]
+      ]
+    },
+    "l1_3": {
+      "label": "Conversation 3",
+      "voices": {"W": "af_sarah", "M": "bm_lewis"},
+      "script": [
+        ["N", "Conversation three."],
+        ["W", "Excuse me, my phone won't switch on. I only bought it two months ago."],
+        ["M", "Let me have a look. The screen isn't cracked. Did you drop it?"],
+        ["W", "No, never. But I left it on the car seat yesterday, and it was really hot in the sun."],
+        ["M", "I see. Then it's probably the battery. It's still under guarantee, so we can replace it for free."]
+      ]
+    },
+    "l1_4": {
+      "label": "Conversation 4",
+      "voices": {"W": "af_bella", "M": "am_michael"},
+      "script": [
+        ["N", "Conversation four."],
+        ["W", "Hi, I'd like to join the city library. How much is membership?"],
+        ["M", "It's twenty thousand som a year, but students only pay ten thousand if they show a student card."],
+        ["W", "Oh dear, I've left my card at home."],
+        ["M", "No problem. If you pay the full price today, bring your card next week, and we'll give you back the difference."]
+      ]
+    },
+    "l1_5": {
+      "label": "Conversation 5",
+      "voices": {"W": "af_heart", "M": "bm_george"},
+      "script": [
+        ["N", "Conversation five."],
+        ["M", "How are you finding the online course, Dilnoza?"],
+        ["W", "I really like it. I can study whenever I want, and I don't waste an hour on the bus every day. The only problem is that I sometimes feel a bit lonely."],
+        ["M", "Yes, I miss seeing my classmates too."],
+        ["W", "Perhaps we could set up a video call once a week."],
+        ["M", "That's a good idea. Let's ask the others."]
+      ]
+    },
+    "l1_6": {
+      "label": "Conversation 6",
+      "voices": {"W": "bf_isabella", "M": "bm_daniel"},
+      "script": [
+        ["N", "Conversation six."],
+        ["W", "Excuse me, what time is breakfast tomorrow? It's Sunday, so we'd like to have a lie-in."],
+        ["M", "On Sundays it's from seven thirty until eleven. The restaurant on the ground floor is closed for cleaning, so we're serving breakfast on the terrace on the top floor. Or we can bring it to your room, if you prefer."],
+        ["W", "The terrace sounds lovely, thank you. The weather's so nice."]
+      ]
+    },
+    "l1_7": {
+      "label": "Conversation 7",
+      "voices": {"W": "af_nicole", "M": "am_adam"},
+      "script": [
+        ["N", "Conversation seven."],
+        ["W", "Farid, you missed the lecture again this morning."],
+        ["M", "I'm sorry, Professor Green. My bus broke down, and then I had to wait twenty minutes for the next one."],
+        ["W", "That's the third time this month. Perhaps you should leave home earlier."],
+        ["M", "I will. I'm also thinking of moving to a flat nearer the university."]
+      ]
+    },
+    "l1_8": {
+      "label": "Conversation 8",
+      "voices": {"W": "af_sarah", "M": "bm_lewis"},
+      "script": [
+        ["N", "Conversation eight."],
+        ["M", "Good afternoon, Sunrise Travel, Ravshan speaking."],
+        ["W", "Hello, this is Nilufar Aliyeva. You left me a message about my flight to Istanbul."],
+        ["M", "Yes, thanks for calling back. Your flight has been moved from ten twenty to eleven forty, so you'll have a little more time in the morning."],
+        ["W", "Oh, that's actually better for me. Do I need to do anything?"],
+        ["M", "No, we've already changed your ticket. Everything else stays the same."]
+      ]
+    },
+    "l2": {
+      "label": "Talk",
+      "voices": {"W": "af_bella"},
+      "script": [
+        ["W", "Good afternoon, everyone, and thank you for coming. My name's Malika, and I work in the International Office. I'd like to tell you about our day trip to Samarkand, which takes place this Saturday. It's one of our most popular events every year, and I know that many of you have never been to the city, so I hope you're looking forward to it.\n\nFirst, the meeting point. We'll meet at half past six in the main hall of Tashkent Central Station, under the big clock. Please don't be late, because the train leaves at seven, and we can't wait for anyone. The journey takes a little over two hours.\n\nNow, the cost. The trip costs one hundred and forty thousand som, and that includes your train tickets, lunch and all the entrance fees. I'm afraid you can't pay on the day. Payment has to be made by Thursday at the International Office. Be careful, because the poster in the corridor says room twelve, but that's a mistake. We're in room twenty-one, on the second floor.\n\nIn Samarkand, you'll be divided into small groups. Last year we had about twenty students in each group, which was too many, so this year each guide will look after fifteen students. Your guide will show you the Registan, the Gur Emir and the market, and then we'll all have lunch together in a traditional restaurant. If you have any special dietary needs, such as vegetarian food or an allergy, please send me an email before Wednesday, so that I can tell the restaurant in good time.\n\nAfter lunch, you'll have about ninety minutes of free time. You can walk around the bazaar, buy souvenirs or visit the museum, but please stay with at least one other person, and keep your phone switched on, so that we can reach you if necessary.\n\nFinally, some advice. You don't need your student card, but please bring your passport, because the railway staff will check it before you get on the train. It can be very hot in the afternoon, so wear a hat and comfortable shoes. We'll be back in Tashkent at about nine in the evening. Does anyone have any questions?"]
+      ]
+    },
+    "l3_1": {
+      "label": "Speaker 1",
+      "voices": {"W": "af_sarah"},
+      "script": [
+        ["N", "Speaker one."],
+        ["W", "I live on the far side of Tashkent, so I take the metro to university every morning. It takes almost fifty minutes, and the carriages are usually crowded, but I don't mind. The night before, I download my lecture notes, and on the train I go through them on my phone. Sometimes I even manage to finish my homework before I get off. By the time I arrive, I'm ready for the first class."]
+      ]
+    },
+    "l3_2": {
+      "label": "Speaker 2",
+      "voices": {"M": "am_michael"},
+      "script": [
+        ["N", "Speaker two."],
+        ["M", "I've been cycling to work for about three years now, and I'd never go back to the bus. The road along the river is flat, so it isn't tiring, and I arrive feeling awake. The trouble starts in winter. When there's snow or ice on the road, I have to leave the bike at home, and last January I was late for work three times. Still, for the rest of the year I wouldn't change it for anything."]
+      ]
+    },
+    "l3_3": {
+      "label": "Speaker 3",
+      "voices": {"W": "bf_isabella"},
+      "script": [
+        ["N", "Speaker three."],
+        ["W", "Most of my colleagues drive, but I've never wanted a car. Between the fuel, the parking and the repairs, it would cost me half of my salary. The minibus that goes to my office costs less than a cup of tea. It's noisy, and it's sometimes late, but for that price I'm not going to complain. My friends laugh at me, but I'm saving for a holiday abroad."]
+      ]
+    },
+    "l3_4": {
+      "label": "Speaker 4",
+      "voices": {"M": "bm_george"},
+      "script": [
+        ["N", "Speaker four."],
+        ["M", "I live in a village about thirty kilometres from the city, and I drive to my office every day. I'd love to leave the car at home, especially because of the traffic on the ring road, but the first bus doesn't reach the city until after nine, and I start work at eight. So, unfortunately, I don't have any other option. My wife says I should look for a job closer to home, and maybe one day I will."]
+      ]
+    },
+    "l4": {
+      "label": "Talk",
+      "voices": {"M": "am_adam"},
+      "script": [
+        ["M", "Hello, everyone, and welcome to Lakeside University. I'm Sardor, one of the student ambassadors, and I'm going to show you around the campus today. Before we start walking, let me quickly tell you about the main facilities and what's new this year. The tour will take about forty minutes, and there will be time for your questions at the end.\n\nWe'll begin with the library, in the tall building in front of you. Some of you may have heard that we were planning to make it bigger, but that idea was cancelled. What has changed is the opening hours. Until last year it closed at ten every evening, but now it stays open all night, seven days a week, so it's perfect if you like to study late. There are quiet floors on the upper levels, and group study rooms on the ground floor, which you can book online.\n\nNext to it, you can see the sports hall. It has a gym, two basketball courts and a climbing wall. There are also evening classes in yoga and karate, and the coaches are all qualified instructors. Students don't have to pay anything to use it, as long as they show their card at the entrance. The swimming pool, on the other hand, is not available at the moment. There was a problem with the roof over the summer, and it will stay closed until the repairs are finished in the spring.\n\nOver there, behind the fountain, is the student centre. It's not a place for lessons. It's somewhere to sit on the sofas, have a coffee, play table tennis and meet your friends between classes. There's also a small stage where student bands sometimes play on Fridays. The café next door sells cheap lunches, so it's always busy at midday. And if you have an idea for a new club, this is where you come to ask for a room.\n\nAnd finally, the science building on your right was opened only two years ago. All the laboratories have modern equipment, including three D printers and new microscopes, so you can do experiments yourselves instead of just watching your teacher. The computer labs are on the top floor, and every student receives a free account for the university network. Now, if you'd like to follow me, we'll go inside and take a look."]
+      ]
+    },
+    "l5_1": {
+      "label": "Conversation 1",
+      "voices": {"W": "af_bella", "M": "am_michael"},
+      "script": [
+        ["N", "Conversation one."],
+        ["W", "Rustam, you study computer science, so can I ask your advice? I can't decide between a laptop and a tablet for my architecture course."],
+        ["M", "What will you mainly use it for?"],
+        ["W", "Drawing plans, and writing long reports. And I'd like something light, because I carry it around all day."],
+        ["M", "A tablet with a pen is brilliant for drawing, and it's much lighter. But typing a long report on a tablet gets really uncomfortable, unless you buy a separate keyboard."],
+        ["W", "I've seen one with a keyboard in the shop, but it costs almost as much as a laptop."],
+        ["M", "Then I'd choose the laptop. Modern ones are quite thin, and you can always add a cheap drawing pad to it."],
+        ["W", "That makes sense. Thanks. I'll go to the shop tomorrow."],
+        ["M", "You're welcome. Send me a message if you'd like me to come with you."],
+        ["W", "I'd love that. Are you free after your lecture?"],
+        ["M", "Yes, I finish at four."]
+      ]
+    },
+    "l5_2": {
+      "label": "Conversation 2",
+      "voices": {"W": "bf_isabella", "M": "bm_lewis"},
+      "script": [
+        ["N", "Conversation two."],
+        ["W", "So, are we driving to the Fergana Valley or taking the train?"],
+        ["M", "I've checked both. The road takes about five hours in good traffic, but there are roadworks on the mountain pass at the weekend, so it could take much longer. Zafar said it took him nearly eight hours last Saturday."],
+        ["W", "Eight hours! That's ridiculous. What if we went on Thursday evening?"],
+        ["M", "I can't, unfortunately. I have a meeting with clients on Friday morning."],
+        ["W", "Then let's take the train on Saturday, and rent a car when we get there. That way we can visit the pottery workshop in Rishton as well."],
+        ["M", "Good idea. It's cheaper than a taxi, too. I'll book the tickets tonight."],
+        ["W", "And I'll look for a hotel near the old town."]
+      ]
+    },
+    "l5_3": {
+      "label": "Conversation 3",
+      "voices": {"W": "af_nicole", "M": "bm_daniel"},
+      "script": [
+        ["N", "Conversation three."],
+        ["W", "Come in, Jasur. You wanted to talk about your research project?"],
+        ["M", "Yes, Doctor Hughes. I originally planned to study public transport in Samarkand, but the city council won't give me any of the data I need. And the deadline is in March."],
+        ["W", "That's a common problem. Have you thought about using the published statistics instead?"],
+        ["M", "They're too general. What I really need is information about waiting times at bus stops."],
+        ["W", "Then collect it yourself. You already did a survey last term, didn't you? Add some interviews with bus drivers. They'll tell you things that numbers can't."],
+        ["M", "That's a great idea. I'll send you a plan by Friday."],
+        ["W", "Good. And remember, you must hand in the ethics form before you start any interviews."]
+      ]
+    },
+    "l6": {
+      "label": "Lecture",
+      "speed": 1.0,
+      "voices": {"W": "bf_isabella"},
+      "script": [
+        ["W", "Good morning, everyone. In today's session I'd like to look at what universities have learned from the rapid move to online teaching over the last few years. I'll be drawing on a survey carried out at our own university, in which around two thousand students and lecturers took part. Each participant completed a questionnaire of about forty questions, and a smaller group also gave interviews, which produced much more detailed information.\n\nLet's begin with the most striking result. Before the survey, most of my colleagues assumed that technology would be the main obstacle: poor internet connections, unfamiliar software and so on. In fact, only eighteen per cent of students named technology as their biggest difficulty. By far the most common answer, given by almost half of the respondents, was motivation. Without a fixed timetable and classmates around them, many found it extremely hard to stay disciplined. One student described it as studying in an empty room. Interestingly, this was true for both first-year and final-year students, so it isn't simply a problem for people who are new to university.\n\nThat brings me to my second point, which concerns the design of the lessons. Many lecturers simply put their usual ninety-minute lecture on video, and this didn't work. Students said they lost concentration after about ten minutes, and they responded much more positively to recordings divided into short sections of no more than fifteen minutes, each followed by a quiz or a discussion question. I should add that recorded lectures weren't all bad. Students liked being able to pause and replay difficult explanations, and many said that this was the biggest advantage of online study.\n\nThird, and this surprised us, the quality of feedback mattered more than its speed. We had expected students to appreciate instant automatic marking, but they valued personal comments from a tutor far more highly, even when those took several days to arrive.\n\nFinally, there's the question of community. Courses that organised small study groups, of, I think it was eight, no, sorry, six students at the most, had a dramatically lower dropout rate. Several students told us that a weekly video call with their group was the only thing that made them feel part of the university. On average, these groups reduced the number of students who left the course by thirty per cent.\n\nSo what should we conclude? The lesson isn't that online teaching is better or worse than the classroom. It's that it has to be designed differently. In other words, universities need to think about the learner's experience first, and the technology second. The worst thing we can do is to copy the classroom onto a screen and hope for the best."]
+      ]
+    },
+    "sq1": {
+      "label": "Examiner: Question 1",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Part one, point one. Let's talk about you. You have thirty seconds for each answer. Question one. What do you usually do on your way to school, university or work?"]
+      ]
+    },
+    "sq2": {
+      "label": "Examiner: Question 2",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Question two. Tell me about a place in your town or city that you enjoy visiting."]
+      ]
+    },
+    "sq3": {
+      "label": "Examiner: Question 3",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Question three. Do you prefer to study alone or with other people? Why?"]
+      ]
+    },
+    "sq4": {
+      "label": "Examiner: Question 4",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Part one, point two. Look at the two pictures. Question four. Compare the two ways of travelling. What are the advantages and disadvantages of each? You have forty-five seconds."]
+      ]
+    },
+    "sq5": {
+      "label": "Examiner: Question 5",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Question five. Which of these two ways of travelling would you choose for a long holiday? Why?"]
+      ]
+    },
+    "sq6": {
+      "label": "Examiner: Question 6",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Question six. How has technology changed the way people travel?"]
+      ]
+    },
+    "sq7": {
+      "label": "Examiner: Question 7",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Part two. Look at the picture. You have one minute to prepare and two minutes to speak. Question seven. Describe what the people in the picture are doing and how they might be feeling. Then tell me about a family celebration that is important to you. What do you celebrate? Who prepares the food? Why is this celebration special for you?"]
+      ]
+    },
+    "sq8": {
+      "label": "Examiner: Question 8",
+      "speed": 0.92, "lead": 0.3, "tail": 0.4,
+      "script": [
+        ["N", "Part three. Read the statement and the arguments for and against it. You have one minute to prepare and two minutes to speak. Question eight. Students should be allowed to use smartphones in class. Discuss both sides of the argument and give your own opinion. Use at least two points from each list."]
+      ]
+    }
+  }
+}

@@ -65,7 +65,7 @@ final class AuthController
                 'full_name' => $name,
                 'login' => $phone,
                 'phone' => $phone,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'password_hash' => Auth::hash($password),
                 'status' => 'active',
                 'created_at' => time(),
             ]);
@@ -97,7 +97,7 @@ final class AuthController
         if (mb_strlen($new) < 6) {
             throw new HttpError(422, 'validation', "Yangi parol kamida 6 ta belgidan iborat bo'lishi kerak.");
         }
-        Db::exec('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $user['id']]);
+        Db::exec('UPDATE users SET password_hash = ? WHERE id = ?', [Auth::hash($new), $user['id']]);
         return ['ok' => true];
     }
 }

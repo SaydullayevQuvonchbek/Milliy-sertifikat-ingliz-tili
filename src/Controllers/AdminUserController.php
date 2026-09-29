@@ -168,7 +168,7 @@ final class AdminUserController
         if (mb_strlen($password) < 6) {
             throw new HttpError(422, 'validation', "Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
         }
-        Db::exec('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $id]);
+        Db::exec('UPDATE users SET password_hash = ? WHERE id = ?', [Auth::hash($password), $id]);
         Audit::log((int) $admin['id'], 'user_password_reset', 'user:' . $id);
         return ['password' => $password];
     }
@@ -218,7 +218,7 @@ final class AdminUserController
                 'full_name' => $name,
                 'login' => $login,
                 'phone' => str_starts_with($login, '+') ? $login : null,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'password_hash' => Auth::hash($password),
                 'status' => 'active',
                 'created_at' => time(),
             ]);
