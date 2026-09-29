@@ -175,12 +175,44 @@ function renderStaffNotice() {
 // Bosh sahifa
 // ---------------------------------------------------------------------
 
+/** Parolni almashtirish (administrator bergan tasodifiy parolni o'quvchi o'zi o'zgartira olsin). */
+async function changePassword() {
+  const current = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', required: true });
+  const next = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', minlength: '6', required: true });
+  const again = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', minlength: '6', required: true });
+  const body = h('div', { class: 'form' }, field('Joriy parol', current), field('Yangi parol (kamida 6 ta belgi)', next), field('Yangi parolni takrorlang', again));
+  for (;;) {
+    const ok = await modal({
+      title: 'Parolni almashtirish',
+      body,
+      actions: [{ label: T.cancel, value: false }, { label: 'Saqlash', value: true, variant: 'primary' }],
+    });
+    if (!ok) return;
+    if (next.value.length < 6) {
+      toast("Yangi parol kamida 6 ta belgidan iborat bo'lishi kerak.", 'error', 6000);
+      continue;
+    }
+    if (next.value !== again.value) {
+      toast('Yangi parollar bir xil emas.', 'error', 6000);
+      continue;
+    }
+    try {
+      await post('auth/password', { current: current.value, password: next.value });
+      toast('Parol almashtirildi.', 'success');
+      return;
+    } catch (err) {
+      toast(err.message, 'error', 6000);
+    }
+  }
+}
+
 function topbar() {
   return h('header', { class: 'topbar' },
     h('a', { class: 'brand', href: '#/' }, h('span', { class: 'brand-mark', text: 'M' }), h('span', { text: session.site.name })),
     h('div', { class: 'topbar-user' },
       icon('user'),
       h('span', { text: session.user.full_name }),
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: changePassword }, 'Parol'),
       h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: logout }, icon('logout'), T.logout)
     )
   );

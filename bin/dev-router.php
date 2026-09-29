@@ -5,6 +5,20 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../src/Http/Security.php';
+
+/** HTML sahifani xavfsizlik sarlavhalari bilan berish (Apache'da buni .htaccess bajaradi). */
+function serve_html(string $path): bool
+{
+    foreach (App\Http\Security::htmlHeaders() as $name => $value) {
+        header($name . ': ' . $value);
+    }
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-cache');
+    readfile($path);
+    return true;
+}
+
 $uri = urldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
 
 if (preg_match('#^/api/(.*)$#', $uri, $m)) {
@@ -15,16 +29,14 @@ if (preg_match('#^/api/(.*)$#', $uri, $m)) {
 
 $file = __DIR__ . '/../public' . $uri;
 if ($uri !== '/' && is_file($file)) {
-    return false;
+    return str_ends_with($file, '.html') ? serve_html($file) : false;
 }
 if (is_dir($file) && is_file(rtrim($file, '/') . '/index.html')) {
     if (!str_ends_with($uri, '/')) {
         header('Location: ' . $uri . '/');
         return true;
     }
-    header('Content-Type: text/html; charset=utf-8');
-    readfile(rtrim($file, '/') . '/index.html');
-    return true;
+    return serve_html(rtrim($file, '/') . '/index.html');
 }
 http_response_code(404);
 echo 'Not found';

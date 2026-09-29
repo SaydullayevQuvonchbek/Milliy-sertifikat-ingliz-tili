@@ -22,8 +22,18 @@ try {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const dir = mkdtempSync(path.join(tmpdir(), 'mlmock-e2e-'));
 const config = path.join(dir, 'config.php');
+// MOCK_E2E_DB=mysql — MySQL/MariaDB'da ishlatish (MOCK_TEST_MYSQL_HOST/PORT/DB/USER/PASS; baza bo'sh bo'lishi kerak).
+const dbConfig = process.env.MOCK_E2E_DB === 'mysql'
+  ? `['driver' => 'mysql', 'mysql' => ${JSON.stringify({
+    host: process.env.MOCK_TEST_MYSQL_HOST || '127.0.0.1',
+    port: Number(process.env.MOCK_TEST_MYSQL_PORT || 3306),
+    database: process.env.MOCK_TEST_MYSQL_DB || 'mlmock_e2e',
+    username: process.env.MOCK_TEST_MYSQL_USER || 'mlmock',
+    password: process.env.MOCK_TEST_MYSQL_PASS || 'mlmock',
+  }).replace(/\{/g, '[').replace(/\}/g, ']').replace(/":/g, '"=>')}]`
+  : `['driver' => 'sqlite', 'sqlite_path' => ${JSON.stringify(path.join(dir, 'db.sqlite'))}]`;
 writeFileSync(config, `<?php return [
-  'db' => ['driver' => 'sqlite', 'sqlite_path' => ${JSON.stringify(path.join(dir, 'db.sqlite'))}],
+  'db' => ${dbConfig},
   'storage_path' => ${JSON.stringify(dir)},
   'secure_cookies' => false,
   'debug' => true,
@@ -289,6 +299,7 @@ try {
   await step('ekspert Writing va Speaking ishini admin panelda baholaydi', async () => {
     const ap = await adminCtx.newPage();
     ap.on('pageerror', (e) => pageErrors.push('admin: ' + e.message));
+    ap.on('console', (m) => m.type() === 'error' && !m.text().includes('Failed to load resource') && pageErrors.push('admin: ' + m.text()));
     ap.on('dialog', (d) => d.accept());
     await ap.goto(`${base}/admin/#/grading`);
     await ap.locator('h1', { hasText: 'Ekspert tekshiruvi' }).waitFor();
@@ -313,6 +324,7 @@ try {
   await step("admin: mock quruvchi — shablon, saqlash, tekshiruv va barcha tablar", async () => {
     const ap = await adminCtx.newPage();
     ap.on('pageerror', (e) => pageErrors.push('admin: ' + e.message));
+    ap.on('console', (m) => m.type() === 'error' && !m.text().includes('Failed to load resource') && pageErrors.push('admin: ' + m.text()));
     ap.on('dialog', (d) => d.accept());
     await ap.goto(`${base}/admin/#/mocks/new`);
     await ap.locator('.field', { hasText: 'Mock nomi' }).locator('input').fill('UI orqali yaratilgan mock');
@@ -339,6 +351,24 @@ try {
     const text = await page.locator('main').innerText();
     assert(text.includes('Yaxshi harakat.'), 'ekspert izohi ko\'rinmadi');
     assert(!text.includes('lead') && !text.includes('seven'), "kalit o'quvchiga ko'rsatilmasligi kerak");
+  });
+
+  await step("o'quvchi parolini o'zi almashtiradi va yangi parol bilan kira oladi", async () => {
+    await page.goto(`${base}/#/`);
+    await page.getByRole('button', { name: 'Parol', exact: true }).click();
+    const dialog = page.locator('.modal');
+    await dialog.getByLabel('Joriy parol').fill('secret1');
+    await dialog.getByLabel('Yangi parol (kamida 6 ta belgi)').fill('yangi-parol-2');
+    await dialog.getByLabel('Yangi parolni takrorlang').fill('yangi-parol-2');
+    await dialog.getByRole('button', { name: 'Saqlash' }).click();
+    await page.locator('.toast', { hasText: 'Parol almashtirildi' }).waitFor();
+    // Yangi parol bilan alohida sessiyadan kirish (eskisi endi ishlamaydi).
+    const other = await browser.newContext();
+    const csrfToken = (await (await other.request.get(`${base}/api/auth/me`)).json()).csrf;
+    const attempt = (password) => other.request.post(`${base}/api/auth/login`, { headers: { 'X-CSRF-Token': csrfToken }, data: { login: '+998901234567', password } });
+    assert((await attempt('secret1')).status() === 422, 'eski parol hali ishlayapti');
+    assert((await attempt('yangi-parol-2')).ok(), 'yangi parol bilan kirib bo\'lmadi');
+    await other.close();
   });
 
   assert(pageErrors.length === 0, 'Brauzer xatolari:\n' + pageErrors.join('\n'));

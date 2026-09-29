@@ -57,10 +57,28 @@ function throws(callable $fn, string $code): void
     throw new AssertionFailed("'{$code}' xatoligi kutilgan edi");
 }
 
-/** Har test uchun toza baza. */
+/**
+ * Har test uchun toza baza. MOCK_TEST_DB=mysql bo'lsa, MySQL/MariaDB'da ishlaydi
+ * (MOCK_TEST_MYSQL_HOST/PORT/DB/USER/PASS; bazadagi barcha jadvallar o'chiriladi!).
+ */
 function fresh_db(): void
 {
-    Db::connect(['driver' => 'sqlite', 'sqlite_path' => ':memory:']);
+    if (getenv('MOCK_TEST_DB') === 'mysql') {
+        $pdo = Db::connect(['driver' => 'mysql', 'mysql' => [
+            'host' => getenv('MOCK_TEST_MYSQL_HOST') ?: '127.0.0.1',
+            'port' => (int) (getenv('MOCK_TEST_MYSQL_PORT') ?: 3306),
+            'database' => getenv('MOCK_TEST_MYSQL_DB') ?: 'mlmock_test',
+            'username' => getenv('MOCK_TEST_MYSQL_USER') ?: 'mlmock',
+            'password' => getenv('MOCK_TEST_MYSQL_PASS') ?: 'mlmock',
+        ]]);
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+        foreach ($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) {
+            $pdo->exec('DROP TABLE `' . $table . '`');
+        }
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+    } else {
+        Db::connect(['driver' => 'sqlite', 'sqlite_path' => ':memory:']);
+    }
     Installer::install();
     Settings::reset();
     Util::$testNowMs = null;

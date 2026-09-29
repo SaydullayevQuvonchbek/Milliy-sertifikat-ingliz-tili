@@ -8,7 +8,12 @@
     "test:php": "php tests/php/run.php",
     "test:js": "node --test tests/js/*.test.mjs",
     "test:e2e": "node tests/e2e/run.mjs",
-    "dev": "php -S 127.0.0.1:8080 -t public bin/dev-router.php"
+    "dev": "php -S 127.0.0.1:8080 -t public bin/dev-router.php",
+    "test:content": "node tests/e2e/content.mjs",
+    "test:load": "node tests/load/run.mjs",
+    "test:mysql": "MOCK_TEST_DB=mysql php tests/php/run.php",
+    "seed:content": "php bin/seed-content.php",
+    "check:content": "php bin/check-content.php"
   },
   "devDependencies": {
     "playwright": "^1.56.0"

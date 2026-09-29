@@ -11,6 +11,7 @@ final class Auth
 {
     private const THROTTLE_WINDOW = 900;
     private const THROTTLE_MAX = 8;
+    private const THROTTLE_MAX_IP = 300;
 
     private static ?array $user = null;
     private static bool $loaded = false;
@@ -124,16 +125,23 @@ final class Auth
     {
         $normalized = Util::normalizeLogin($login);
         $key = sha1($ip . '|' . $normalized);
+        // Bitta IP'dan turli loginlarni ketma-ket sinash (credential stuffing) ham chegaralanadi. Chegara katta:
+        // bitta markazdagi yuzlab o'quvchi umumiy IP orqali kiradi.
+        $ipKey = sha1('ip|' . $ip);
         $since = time() - self::THROTTLE_WINDOW;
         Db::exec('DELETE FROM login_throttle WHERE created_at < ?', [$since]);
         $fails = (int) Db::val('SELECT COUNT(*) FROM login_throttle WHERE throttle_key = ? AND created_at >= ?', [$key, $since]);
-        if ($fails >= self::THROTTLE_MAX) {
+        $ipFails = (int) Db::val('SELECT COUNT(*) FROM login_throttle WHERE throttle_key = ? AND created_at >= ?', [$ipKey, $since]);
+        if ($fails >= self::THROTTLE_MAX || $ipFails >= self::THROTTLE_MAX_IP) {
             throw new HttpError(429, 'throttled', "Juda ko'p urinish. 15 daqiqadan keyin qayta urinib ko'ring.");
         }
 
         $user = Db::one('SELECT * FROM users WHERE login = ?', [$normalized]);
-        if ($user === null || !password_verify($password, (string) $user['password_hash'])) {
+        // Login mavjud bo'lmasa ham parol tekshiriladi: javob vaqti bo'yicha loginni aniqlab bo'lmasin.
+        $hash = $user !== null ? (string) $user['password_hash'] : self::dummyHash();
+        if (!password_verify($password, $hash) || $user === null) {
             Db::insert('login_throttle', ['throttle_key' => $key, 'created_at' => time()]);
+            Db::insert('login_throttle', ['throttle_key' => $ipKey, 'created_at' => time()]);
             throw new HttpError(422, 'bad_credentials', "Login yoki parol noto'g'ri.");
         }
         if ($user['status'] !== 'active') {
@@ -144,6 +152,28 @@ final class Auth
         }
         Db::exec('DELETE FROM login_throttle WHERE throttle_key = ?', [$key]);
         return $user;
+    }
+
+    private static function dummyHash(): string
+    {
+        static $hash = null;
+        return $hash ??= password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT);
+    }
+
+    /**
+     * Umumiy urinish chegarasi (masalan, ro'yxatdan o'tish): oynada $max martadan ko'p bo'lsa 429.
+     * Muvaffaqiyatli chaqiruv ham hisoblanadi.
+     */
+    public static function rateLimit(string $bucket, string $ip, int $max, int $window): void
+    {
+        $key = sha1($bucket . '|' . $ip);
+        $since = time() - $window;
+        Db::exec('DELETE FROM login_throttle WHERE throttle_key = ? AND created_at < ?', [$key, $since]);
+        $count = (int) Db::val('SELECT COUNT(*) FROM login_throttle WHERE throttle_key = ? AND created_at >= ?', [$key, $since]);
+        if ($count >= $max) {
+            throw new HttpError(429, 'throttled', "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring.");
+        }
+        Db::insert('login_throttle', ['throttle_key' => $key, 'created_at' => time()]);
     }
 
     public static function publicUser(array $user): array

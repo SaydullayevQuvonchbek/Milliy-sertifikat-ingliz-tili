@@ -77,9 +77,21 @@ final class AdminUserController
         $lines = preg_split('/\r\n|\r|\n/', (string) $r->input('text', '')) ?: [];
         $created = [];
         $errors = [];
+        $pending = [];
+
+        // Har parol xeshlanishi sekin (yuzlab qator bo'lsa, hosting vaqt chegarasi — odatda 30 s — oshib ketadi).
+        // Chegarani ko'tarishga urinamiz va vaqtning ~70 % ishlatilsa to'xtab, qolgan qatorlarni qaytaramiz.
+        @set_time_limit(120);
+        $limit = (int) ini_get('max_execution_time');
+        $deadline = $limit > 0 ? microtime(true) + $limit * 0.7 : null;
+
         foreach ($lines as $index => $line) {
             $line = trim($line);
             if ($line === '') {
+                continue;
+            }
+            if ($deadline !== null && microtime(true) > $deadline) {
+                $pending[] = $line;
                 continue;
             }
             $parts = array_map('trim', preg_split('/[;\t,]/', $line, 2) ?: []);
@@ -99,7 +111,7 @@ final class AdminUserController
         if ($created !== []) {
             Audit::log((int) $admin['id'], 'user_bulk', '', ['count' => count($created)]);
         }
-        return ['created' => $created, 'errors' => $errors];
+        return ['created' => $created, 'errors' => $errors, 'pending' => $pending];
     }
 
     public static function update(Request $r): array

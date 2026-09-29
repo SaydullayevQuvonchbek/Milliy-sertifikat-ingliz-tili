@@ -98,16 +98,17 @@ Bo'sh Writing yoki yozuvsiz Speaking avtomatik 0 bilan baholanadi va ekspert nav
 
 ```bash
 cp config/config.example.php config/config.php      # kerak bo'lsa tahrirlang
-php bin/install.php --admin-login=admin --admin-password=KuchliParol123 --demo
+php bin/install.php --admin-login=admin --admin-password=KuchliParol123 --content --demo
 php -S 127.0.0.1:8080 -t public bin/dev-router.php
 ```
 
 - O'quvchi sahifasi: http://127.0.0.1:8080/
 - Boshqaruv paneli: http://127.0.0.1:8080/admin/
 
-`--demo` ikki namunaviy mock (to'liq format va 5–10 daqiqalik qisqa mock), ekspert (`expert` / `expert123`) va o'quvchi
-(`+998900000001` / `student123`) hisoblarini qo'shadi. Namunadagi audio — oddiy signal ovozlari, rasmlar — shartli rasmlar;
-transkriptlar admin panelda turibdi, ular asosida haqiqiy audio yozib almashtiring.
+- `--content` — `content/mocks/` dagi **3 ta tayyor mock**ni (audio, rasm va savollari bilan) joylaydi va faollashtiradi
+  (pastdagi "Tayyor mocklar" bo'limiga qarang). Ishlab chiqarish serverida ham shuni ishlating.
+- `--demo` — faqat sinov uchun: qisqa mock (5–10 daqiqa) va to'liq namuna mock (audiosi oddiy signal ovozlari), ekspert
+  (`expert` / `expert123`) va o'quvchi (`+998900000001` / `student123`) hisoblarini qo'shadi. Haqiqiy serverda **ishlatmang**.
 
 ### Hostingga joylash (Apache, masalan reg.ru)
 
@@ -115,12 +116,29 @@ transkriptlar admin panelda turibdi, ular asosida haqiqiy audio yozib almashtiri
    veb-ildizni o'zgartirib bo'lmasa, `public/` ichidagini `public_html/` ga, qolgan papkalarni (`src`, `config`, `database`,
    `bin`, `storage`) bir daraja yuqoriga joylang.
 2. `config/config.php` yarating (`config.example.php` dan nusxa): baza turi, MySQL ma'lumotlari, `storage_path`.
-3. `php bin/install.php --admin-login=admin --admin-password=...` ni bir marta ishga tushiring (SSH yoki hosting panelidagi cron orqali).
+3. `php bin/install.php --admin-login=admin --admin-password=... --content` ni bir marta ishga tushiring (SSH yoki hosting panelidagi cron orqali).
+   `--content` 3 ta tayyor mockni joylaydi; keyin ham `php bin/seed-content.php` bilan qo'shsa bo'ladi (bor mocklar o'tkazib yuboriladi).
 4. `storage/` papkasiga yozish huquqi bering. U veb-ildizdan tashqarida bo'lsin (ichida bo'lsa, `storage/.htaccess` kirishni taqiqlaydi).
 5. PHP sozlamalari: `upload_max_filesize = 64M`, `post_max_size = 64M` (Listening audiolari uchun), `max_execution_time = 60`.
 
 Ko'p o'quvchi bir vaqtda ishlaydigan server uchun MySQL tavsiya etiladi (`'driver' => 'mysql'`). SQLite kichik markaz
-uchun (taxminan bir necha o'nlab bir vaqtdagi o'quvchi) yetarli.
+uchun yetarli. Ikkalasi ham sinalgan: barcha testlar SQLite va MariaDB 10.11 da o'tadi; 150 o'quvchi bir vaqtda
+ishlaganda (yuklama sinovi) ikkala bazada ham xato yo'q, javoblarni saqlash so'rovi p95 < 100 ms.
+
+**Kirish (login) CPU'ni band qiladi** (parol xeshi ataylab sekin). 150 o'quvchi bir soniyada kirsa, oxirgisi bir necha
+soniya kutadi — o'quvchilarni 5–10 daqiqa oralig'ida kiritish yoki oldindan kirib turishni so'rash tavsiya etiladi.
+
+**Teskari proksi (Cloudflare, Nginx)** ortida `config.php` da `'client_ip_header' => 'HTTP_CF_CONNECTING_IP'` (yoki
+`HTTP_X_FORWARDED_FOR`) ko'rsating, aks holda kirish/ro'yxatdan o'tish cheklovlari hamma o'quvchini bitta IP deb hisoblaydi.
+
+### Zaxira nusxa
+
+```bash
+php bin/backup.php --keep=14        # baza + audio/rasmlar/Speaking yozuvlari → storage/backups/backup-<sana>.zip
+```
+
+Cron (har kecha 03:30): `30 3 * * * php /yo'l/bin/backup.php --keep=14`. SQLite'da imtihon davomida ham xavfsiz;
+MySQL'da `mysqldump` kerak. Tiklash: ZIP'ni oching, `database.sqlite` (yoki `dump.sql`) va `uploads/` ni joyiga qo'ying.
 
 ### Nginx
 
@@ -131,6 +149,12 @@ location /api/ { rewrite ^/api/(.*)$ /api.php?route=$1 last; }
 location ~ \.php$ { include fastcgi_params; fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
 location / { try_files $uri $uri/ =404; }
 client_max_body_size 64m;
+
+# Xavfsizlik sarlavhalari (Apache'da public/.htaccess qo'yadi; matn src/Http/Security.php dagi bilan bir xil bo'lsin)
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+add_header X-Frame-Options DENY always;
+add_header X-Content-Type-Options nosniff always;
+add_header Permissions-Policy "camera=(), geolocation=(), microphone=(self), fullscreen=(self)" always;
 ```
 
 ---

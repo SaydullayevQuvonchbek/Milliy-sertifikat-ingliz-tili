@@ -2,9 +2,10 @@
 
 // O'rnatish: jadvallarni yaratish va administrator qo'shish.
 //
-//   php bin/install.php --admin-login=admin --admin-password=KuchliParol123 [--admin-name="Ism Familiya"] [--demo]
+//   php bin/install.php --admin-login=admin --admin-password=KuchliParol123 [--admin-name="Ism Familiya"] [--content] [--demo]
 //
-// --demo — namunaviy mock va sinov hisoblarini qo'shadi (faqat sinov uchun).
+// --content — content/mocks/ dagi tayyor mocklarni (audio va rasmlari bilan) joylaydi va faollashtiradi.
+// --demo    — namunaviy mock va sinov hisoblarini (ekspert, o'quvchi) qo'shadi (faqat sinov uchun).
 
 declare(strict_types=1);
 
@@ -13,7 +14,7 @@ require __DIR__ . '/../src/bootstrap.php';
 use App\Db;
 use App\Installer;
 
-$options = getopt('', ['admin-login:', 'admin-password:', 'admin-name:', 'demo']);
+$options = getopt('', ['admin-login:', 'admin-password:', 'admin-name:', 'content', 'demo']);
 
 Installer::install();
 echo "Jadvallar tayyor (" . Db::driver() . ").\n";
@@ -35,6 +36,10 @@ if ($login !== null) {
         Installer::createUser('admin', (string) ($options['admin-name'] ?? 'Administrator'), (string) $login, (string) $password);
         echo "Administrator yaratildi: {$login}\n";
     }
+}
+
+if (isset($options['content'])) {
+    require __DIR__ . '/seed-content.php';
 }
 
 if (isset($options['demo'])) {

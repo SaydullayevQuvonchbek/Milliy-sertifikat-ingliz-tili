@@ -44,6 +44,8 @@ final class AuthController
         if (!Settings::get('registration_open')) {
             throw new HttpError(403, 'registration_closed', "Ro'yxatdan o'tish yopiq. Login va parolni administratordan oling.");
         }
+        // Avtomatik ommaviy ro'yxatdan o'tishning oldini olish (bitta markaz IP'si ostida yuzlab o'quvchi bo'lishi mumkin).
+        Auth::rateLimit('register', $r->ip, 100, 900);
         $name = trim(preg_replace('/\s+/u', ' ', Util::cleanText($r->str('full_name'), 120)) ?? '');
         $phone = Util::normalizePhone($r->str('phone'));
         $password = (string) $r->input('password', '');

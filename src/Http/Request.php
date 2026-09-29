@@ -66,8 +66,26 @@ final class Request
             $body,
             $_FILES,
             $headers,
-            (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0')
+            self::clientIp()
         );
+    }
+
+    /**
+     * Mijoz IP manzili. Sayt teskari proksi (Cloudflare, Nginx) ortida bo'lsa, config'da `client_ip_header`
+     * ("HTTP_CF_CONNECTING_IP" yoki "HTTP_X_FORWARDED_FOR") ko'rsatiladi — aks holda hamma o'quvchi bitta IP bo'lib ko'rinadi.
+     * Sarlavha faqat proksi ishonchli bo'lsa yoqiladi: aks holda mijoz uni soxtalashtira oladi.
+     */
+    private static function clientIp(): string
+    {
+        $remote = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        $header = (string) \App\Config::get('client_ip_header', '');
+        if ($header !== '' && !empty($_SERVER[$header])) {
+            $first = trim(explode(',', (string) $_SERVER[$header])[0]);
+            if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
+                return $first;
+            }
+        }
+        return $remote;
     }
 
     public function input(string $key, mixed $default = null): mixed

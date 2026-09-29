@@ -136,6 +136,7 @@ async function bulkAdd(reload) {
       title: `Qo'shildi: ${res.created.length} ta`,
       wide: true,
       body: h('div', null,
+        res.pending && res.pending.length ? h('div', { class: 'alert alert-warn' }, h('div', null, h('strong', { text: `Vaqt tugadi: ${res.pending.length} ta qator qo'shilmadi.` }), h('p', { class: 'small', text: "Quyidagi qatorlarni nusxalab, qayta yuboring:" }), h('textarea', { class: 'input mono', rows: 4, readonly: true, value: res.pending.join('\n') }))) : null,
         res.errors.length ? h('div', { class: 'alert alert-warn' }, h('div', null, h('strong', { text: `Qo'shilmadi: ${res.errors.length} ta qator` }), h('ul', null, res.errors.map((e) => h('li', { text: `${e.line}-qator (${e.text}): ${e.message}` }))))) : null,
         res.created.length ? credentialsView(res.created) : null
       ),

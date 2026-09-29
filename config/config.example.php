@@ -31,6 +31,10 @@ return [
 
     'timezone' => 'Asia/Tashkent',
 
+    // Sayt teskari proksi (Cloudflare, Nginx) ortida bo'lsa, haqiqiy IP shu sarlavhadan olinadi
+    // (masalan 'HTTP_CF_CONNECTING_IP' yoki 'HTTP_X_FORWARDED_FOR'). Faqat proksi ishonchli bo'lsa yoqing.
+    'client_ip_header' => '',
+
     // Xatoliklar tafsilotini javobda ko'rsatish (faqat ishlab chiqishda yoqing).
     'debug' => false,
 ];
