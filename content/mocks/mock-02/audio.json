@@ -1,0 +1,537 @@
+{
+  "defaults": {
+    "speed": 0.95,
+    "turn_gap": 0.5,
+    "lead": 0.5,
+    "tail": 0.7
+  },
+  "voices": {
+    "N": "bf_emma"
+  },
+  "tracks": {
+    "l1_1": {
+      "label": "Conversation 1",
+      "voices": {
+        "W": "af_heart",
+        "M": "am_michael"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "W",
+          "The forecast for Saturday looks terrible. Shall we cancel our trip to the national park?"
+        ],
+        [
+          "M",
+          "Not yet. It says there will be heavy rain in the morning, but it should clear up by lunchtime. If we leave at noon instead of eight, we'll miss the worst of it."
+        ],
+        [
+          "W",
+          "But then we won't have much time for the walk, will we?"
+        ],
+        [
+          "M",
+          "We'll still have five or six hours of daylight. That's plenty for the lake trail."
+        ],
+        [
+          "W",
+          "All right, that's a good idea. I'll make some sandwiches for the journey."
+        ]
+      ]
+    },
+    "l1_2": {
+      "label": "Conversation 2",
+      "voices": {
+        "W": "bf_emma",
+        "M": "bm_george"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "W",
+          "Hello, Tom, it's Alina. I'm afraid I can't make the ten o'clock meeting tomorrow. My train from Khiva has been cancelled."
+        ],
+        [
+          "M",
+          "That's a shame. We could move it to the afternoon. Would two o'clock suit you?"
+        ],
+        [
+          "W",
+          "Two is fine, but I've got a video call at three, so could we start at half past one instead?"
+        ],
+        [
+          "M",
+          "Of course. Half past one it is. I'll tell the others."
+        ]
+      ]
+    },
+    "l1_3": {
+      "label": "Conversation 3",
+      "voices": {
+        "M": "am_adam",
+        "W": "af_nicole"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "M",
+          "What did you think of the Silk Road exhibition at the museum?"
+        ],
+        [
+          "W",
+          "It was really good. The old maps were interesting, but what I liked most was the recording of a merchant's diary. Hearing it read aloud made the journey feel real."
+        ],
+        [
+          "M",
+          "Really? I preferred the models of the caravans. My little brother would love them."
+        ],
+        [
+          "W",
+          "Yes, he would. Take him next weekend, because the exhibition closes on Sunday."
+        ]
+      ]
+    },
+    "l1_4": {
+      "label": "Conversation 4",
+      "voices": {
+        "W": "af_sarah",
+        "M": "bm_lewis"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "W",
+          "Hello, I'd like to volunteer for the river clean-up on Saturday. What do I need to bring?"
+        ],
+        [
+          "M",
+          "Just old clothes and a bottle of water. We provide gloves, bags and lunch. We meet at nine at the bridge."
+        ],
+        [
+          "W",
+          "Great. Can I bring my ten-year-old son?"
+        ],
+        [
+          "M",
+          "I'm afraid the clean-up is for people over sixteen, because the water is deep. But he's welcome to join us at the picnic in the afternoon."
+        ]
+      ]
+    },
+    "l1_5": {
+      "label": "Conversation 5",
+      "voices": {
+        "W": "bf_isabella",
+        "M": "am_adam"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "W",
+          "So, Mr Karimov, why are you thinking of leaving your job at the bank?"
+        ],
+        [
+          "M",
+          "Well, the salary is good and I get on well with my colleagues. But I sit at a desk all day, and I'd like a job where I can meet people and spend some time outdoors."
+        ],
+        [
+          "W",
+          "I see. Have you worked with tourists before?"
+        ],
+        [
+          "M",
+          "Not professionally, but I speak three languages, and I've spent every holiday hiking in the mountains."
+        ],
+        [
+          "W",
+          "That sounds very useful. Our tour guide position would certainly offer what you're looking for."
+        ]
+      ]
+    },
+    "l1_6": {
+      "label": "Conversation 6",
+      "voices": {
+        "M": "bm_daniel",
+        "W": "af_bella"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "M",
+          "Would you like a bag for those, madam?"
+        ],
+        [
+          "W",
+          "No, thank you. I've brought my own cloth bag."
+        ],
+        [
+          "M",
+          "Very good. Most people still take a plastic one, even though we charge extra for them now."
+        ],
+        [
+          "W",
+          "I know. It's not the money that bothers me. I just don't want more plastic ending up in the river near our village."
+        ],
+        [
+          "M",
+          "That's a nice way to think about it. Maybe more of our customers should do the same."
+        ]
+      ]
+    },
+    "l1_7": {
+      "label": "Conversation 7",
+      "voices": {
+        "W": "af_heart",
+        "M": "bm_george"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "W",
+          "Hello, I'd like to book a place on the old town walking tour on Sunday, please."
+        ],
+        [
+          "M",
+          "Certainly. The morning tour is full, I'm afraid. We do have space at two o'clock, or there's an evening tour at six, which finishes with dinner."
+        ],
+        [
+          "W",
+          "The evening one sounds lovely, but I have to catch a train at eight. I'll take the two o'clock, then."
+        ],
+        [
+          "M",
+          "Very good. Please arrive at the museum gate ten minutes early."
+        ]
+      ]
+    },
+    "l1_8": {
+      "label": "Conversation 8",
+      "voices": {
+        "M": "am_puck",
+        "W": "af_nicole"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "M",
+          "Have you met the new designer yet? Her name's Laylo, and she starts on Monday."
+        ],
+        [
+          "W",
+          "Not yet. Will she be in our team, or with the marketing people?"
+        ],
+        [
+          "M",
+          "Both, in a way. She'll sit with us for the first month, and then she'll move to the marketing team when their new office on the second floor is ready."
+        ],
+        [
+          "W",
+          "Good. We really need some help with the website, so I'm glad she's coming."
+        ]
+      ]
+    },
+    "l2": {
+      "label": "Talk",
+      "voices": {
+        "W": "bf_isabella"
+      },
+      "script": [
+        [
+          "W",
+          "Good evening, everyone, and thank you for coming to this information evening about our tree-planting weekend on the old Aral Sea bed. My name is Dilnoza, and I'm the coordinator of Aral Green Hands, a small charity based in Nukus. I'm delighted to see so many of you here tonight. More than sixty people have signed up already, which is a record for us.\n\nLet me start with the rules. In previous years we accepted volunteers from the age of fourteen, as long as they came with a parent. This year that has changed, because the work is harder than it looks, so everyone must be at least sixteen. I'm sorry to disappoint any younger friends, but the safety of our volunteers has to come first.\n\nNow, the practical details. We'll meet on Friday morning outside the museum in Nukus, the one with the famous art collection, and the minibuses will take us north to the planting site. When I first joined the project, the journey took nearly six hours, but a new road opened last year, so we should arrive in about four. We'll stop halfway for tea and something to eat, so you don't need to bring food for the journey.\n\nWhat should you bring? We provide spades, gloves, water and lunch, and you'll each receive a project T-shirt. What we can't provide is a face mask that fits you properly, and you will need one, because the wind lifts a lot of dust from the dry ground. A hat and sunglasses are useful too, but the mask is essential. And remember that the nights can be cold, even in autumn, so pack a warm jacket.\n\nWe plant saxaul, a tough desert tree with deep roots that grows well in salty soil. Last year each volunteer planted about thirty trees a day. The group was so strong that this year we're aiming higher, at forty trees per person, per day. Don't worry, we'll show you exactly how to do it, and there will be plenty of breaks. If everything goes to plan, we should plant around five thousand new trees together.\n\nFinally, if you'd like to sign up, please email me. My surname is Rashidova, that's R, A, S, H, I, D, O, V, A, and you'll find my address on the poster by the door. Thank you all for your interest, and I look forward to seeing you in the desert."
+        ]
+      ]
+    },
+    "l3_1": {
+      "label": "Speaker 1",
+      "voices": {
+        "M": "am_adam"
+      },
+      "script": [
+        [
+          "M",
+          "When I started as a junior engineer at a construction company, I honestly thought the technical side would be the hard part. It wasn't. The equipment was familiar from university, and the calculations were nothing new. What I hadn't expected was the number of reports I had to write every single day. Some weeks I spent more time filling in forms than doing any real engineering, and I began to wonder whether I had chosen the right career."
+        ]
+      ]
+    },
+    "l3_2": {
+      "label": "Speaker 2",
+      "voices": {
+        "W": "af_nicole"
+      },
+      "script": [
+        [
+          "W",
+          "I've always been rather shy, so standing in front of thirty teenagers on my first morning as a teacher terrified me. My voice actually shook, and I forgot half of what I'd planned to say. The lessons themselves were fine, because I had prepared them for weeks. It was the speaking that worried me. Now, ten years later, I can talk to a hall full of parents without any trouble at all."
+        ]
+      ]
+    },
+    "l3_3": {
+      "label": "Speaker 3",
+      "voices": {
+        "M": "bm_daniel"
+      },
+      "script": [
+        [
+          "M",
+          "I was lucky, because in my first week they paired me with a woman who had worked in the tourist office for twenty years. She showed me how to handle difficult customers, which no training course could have taught me, and she introduced me to the guides and drivers we work with. I still phone her whenever I have a problem, even though she retired last spring."
+        ]
+      ]
+    },
+    "l3_4": {
+      "label": "Speaker 4",
+      "voices": {
+        "W": "bf_alice"
+      },
+      "script": [
+        [
+          "W",
+          "The job itself was fine, and my colleagues were friendly. The problem was getting there. I had to take two buses and then a train, so I left home at half past five and didn't get back until after eight. I was exhausted by Thursday every week, and I hardly saw my family. After six months, I decided to move closer to the city."
+        ]
+      ]
+    },
+    "l4": {
+      "label": "Talk",
+      "voices": {
+        "M": "am_michael"
+      },
+      "script": [
+        [
+          "M",
+          "Welcome to the Caravan Heritage Centre, everyone. My name is Rustam, and I'll be your guide this morning. Before you explore on your own, let me tell you about five parts of the site, so that you can decide where to spend your time.\n\nWe'll start where you are standing, in the main courtyard. Nine hundred years ago, this was the busiest place in the whole town. Traders unloaded their camels here and sold goods to passing merchants. Today it is much quieter, but on Friday evenings local musicians play here, and visitors sit on the old stone steps to listen. It's one of the most popular events of the week, so come early if you want a good seat.\n\nAlong the north side is the long hall, where merchants used to sleep. It now houses workshops, and every morning craftspeople show how they make paper and pottery by hand. You are welcome to watch and ask questions, although I'm afraid you can't try it yourselves, as the materials are very delicate.\n\nBehind the long hall you'll find the old stables. They're small and rather dark, but they hold some fascinating finds from our archaeological digs, including coins, jewellery and broken pottery. Some of these objects are more than a thousand years old, and each one has a label explaining where it was found.\n\nIf you climb the stairs to the tower, you'll be rewarded with a wonderful view across the desert, all the way to the mountains on a clear day. It can be windy at the top, so hold on to your hats.\n\nFinally, the cellar. It is cool and dry, which makes it the perfect place to keep our collection of letters and diaries written by travellers who passed through here over the centuries. Some are in languages that few people can read today, but we have English copies for you to read at the tables.\n\nBefore you go, a few practical points. The café by the main gate serves dishes from the different countries along the Silk Road, and the gift shop next to it sells souvenirs made by local artists. Children often enjoy the costume room by the entrance, where they can dress up in clothes from the past. And please remember that the centre closes at five, so don't leave the tower until the last minute. Enjoy your visit."
+        ]
+      ]
+    },
+    "l5_1": {
+      "label": "Conversation 1",
+      "voices": {
+        "W": "af_heart",
+        "M": "am_michael"
+      },
+      "script": [
+        [
+          "M",
+          "Malika, you look worried. Is it about the offer from the head office in Almaty?"
+        ],
+        [
+          "W",
+          "Yes. They want me to lead a new design team there, and I have to give them an answer by Friday."
+        ],
+        [
+          "M",
+          "But that's a huge step up. It's exactly what you've been working towards for years."
+        ],
+        [
+          "W",
+          "I know, and the salary is much better than what I earn now. I'm also confident that I could do the job. What bothers me is that I've only just settled in. My whole family lives here in Tashkent, and I'd miss my nieces terribly."
+        ],
+        [
+          "M",
+          "It's only a short flight, though. You could visit them most weekends."
+        ],
+        [
+          "W",
+          "True, but that would get expensive, and I'd hate to spend all my weekends travelling. Actually, I think I'm going to ask whether I can do the job from here and travel over to Almaty once a month."
+        ],
+        [
+          "M",
+          "Good thinking. The worst they can say is no."
+        ],
+        [
+          "W",
+          "Exactly. Anyway, thanks for listening, Jasur. I feel much better now."
+        ]
+      ]
+    },
+    "l5_2": {
+      "label": "Conversation 2",
+      "voices": {
+        "W": "bf_isabella",
+        "M": "bm_lewis"
+      },
+      "script": [
+        [
+          "M",
+          "Come in, Dilnoza. How is your project on the river going?"
+        ],
+        [
+          "W",
+          "Quite well, Dr Bennett. I've collected water samples from six places along the river, but there's a problem with the results from the two sites closest to the cotton factory."
+        ],
+        [
+          "M",
+          "What sort of problem?"
+        ],
+        [
+          "W",
+          "The samples stayed in the sun for hours before I tested them, so I'm afraid the results can't be trusted. I've had to throw them away."
+        ],
+        [
+          "M",
+          "That's a pity, but it happens. Can you take new ones?"
+        ],
+        [
+          "W",
+          "I'd like to, but the factory is private property, and I need the manager's permission. I've emailed him twice and he hasn't replied."
+        ],
+        [
+          "M",
+          "Don't wait for him. There's a public footpath beside the river, and you don't need permission to collect water from there. And this time, take the samples straight to the university laboratory instead of testing them yourself."
+        ],
+        [
+          "W",
+          "I hadn't thought of that. Will the laboratory charge me?"
+        ],
+        [
+          "M",
+          "Not for a student project. Just tell them I sent you."
+        ],
+        [
+          "W",
+          "Thank you, Dr Bennett. I'll go on Saturday."
+        ]
+      ]
+    },
+    "l5_3": {
+      "label": "Conversation 3",
+      "voices": {
+        "M": "bm_george",
+        "W": "af_bella"
+      },
+      "script": [
+        [
+          "M",
+          "Hello, Nargiza, and thanks for signing up to help at the community garden. Have you done any gardening before?"
+        ],
+        [
+          "W",
+          "Only on my balcony, I'm afraid. But I'm keen to learn."
+        ],
+        [
+          "M",
+          "That's fine. Most of our volunteers are beginners. We have two sessions a week, on Tuesday evenings and on Saturday mornings. Saturdays are busier and more sociable, but Tuesdays are quieter, so you'd get more advice from the experienced gardeners."
+        ],
+        [
+          "W",
+          "I'd love to say Tuesday, but I work until seven that evening. So Saturday it is, and I'll ask questions as I go."
+        ],
+        [
+          "M",
+          "Perfect. Come this Saturday at nine and ask for me. I'll introduce you to the rest of the team."
+        ],
+        [
+          "W",
+          "Shall I bring my own tools?"
+        ],
+        [
+          "M",
+          "No need, we have plenty of tools and gloves. Just wear sturdy shoes, because the paths can get muddy."
+        ],
+        [
+          "W",
+          "Great. And do I need to bring anything to eat?"
+        ],
+        [
+          "M",
+          "Only if you're hungry. We share tea and fruit at ten o'clock."
+        ],
+        [
+          "W",
+          "Lovely. I'll see you at nine, then."
+        ]
+      ]
+    },
+    "l6": {
+      "label": "Lecture",
+      "voices": {
+        "M": "bm_george"
+      },
+      "speed": 0.97,
+      "script": [
+        [
+          "M",
+          "Good afternoon, everyone. Today I'd like to challenge the popular image of the Silk Road, because I think it is misleading in two important ways. Then I'll say a few words about what really made these routes matter.\n\nFirst, the name. Many people assume that medieval merchants used the expression themselves, but it is actually a modern invention. Some textbooks give the date as eighteen sixty seven, but that is a mistake. The German geographer Ferdinand von Richthofen introduced the term in eighteen seventy seven, and it caught on because it was so easy to remember. In reality, there was no single road. There was a web of routes crossing deserts, mountains and steppes, and these routes shifted with the seasons, with wars, and with the price of protection.\n\nSecond, the traders. We tend to imagine a lone merchant leading a camel train all the way from China to the Mediterranean. Almost nobody did that. Goods normally travelled in stages, passing along a chain of middlemen, each of whom sold on to the next at a profit. Among the most successful of these were the Sogdians, whose home towns lay around Samarkand and whose language became a kind of common tongue for trade. By the time a roll of silk reached its final buyer, it might have changed hands a dozen times, which is one reason why oasis cities such as Merv and Samarkand became so wealthy.\n\nOf course, the caravans still needed places to rest. Rulers and rich merchants paid for caravanserais, fortified inns where travellers and animals could sleep safely. You sometimes read that they stood forty kilometres apart, but the most common distance was closer to thirty, roughly what a loaded camel could cover in a day.\n\nNow, if you asked me what really mattered, I would say it was not the silk but the ideas. Religions travelled along these routes, and so did technology. According to tradition, the secret of papermaking reached Samarkand in the eighth century, and within a few decades the city was producing paper of remarkable quality. That transformed the way scholars recorded and shared knowledge. Food travelled too. The peach, for example, spread west from China and reached Europe by way of Persia.\n\nConnection had a price, however. The Black Death probably followed the trade routes in the fourteenth century, and it killed millions of people.\n\nFinally, the decline. Contrary to what students often write in essays, the Silk Road did not collapse overnight. Overland trade faded gradually, partly because ships could carry goods far more cheaply, and partly because heavy taxes made the caravans less profitable. Next week we will look more closely at the cities themselves."
+        ]
+      ]
+    },
+    "sq1": {
+      "label": "Question 1",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question one. Tell me about your job or your studies. What do you like most about it?"
+        ]
+      ]
+    },
+    "sq2": {
+      "label": "Question 2",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question two. Do you like spending time outdoors? What do you enjoy doing in nature?"
+        ]
+      ]
+    },
+    "sq3": {
+      "label": "Question 3",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question three. Tell me about an interesting historical place that you have visited, or would like to visit."
+        ]
+      ]
+    },
+    "sq4": {
+      "label": "Question 4",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question four. Look at the two pictures. Compare them, and say what the advantages and disadvantages of working in each place are."
+        ]
+      ]
+    },
+    "sq5": {
+      "label": "Question 5",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question five. Which of these two ways of working would you prefer? Why?"
+        ]
+      ]
+    },
+    "sq6": {
+      "label": "Question 6",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question six. Do you think more people will work from home in the future? Why, or why not?"
+        ]
+      ]
+    },
+    "sq7": {
+      "label": "Question 7",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question seven. Look at the picture and describe what the people are doing. Then tell me about a time when you helped other people or your community. You should say what you did, who you did it with, and how you felt afterwards. You have one minute to prepare and two minutes to speak."
+        ]
+      ]
+    },
+    "sq8": {
+      "label": "Question 8",
+      "speed": 0.92,
+      "script": [
+        [
+          "N",
+          "Question eight. Read the statement: cities should ban private cars from the centre. Now look at the arguments for and against. Discuss both sides of the argument and give your own opinion. Use at least two points from each list. You have one minute to prepare and two minutes to speak."
+        ]
+      ]
+    }
+  }
+}
