@@ -1,0 +1,519 @@
+{
+  "defaults": {
+    "speed": 0.95,
+    "turn_gap": 0.5,
+    "lead": 0.5,
+    "tail": 0.7
+  },
+  "voices": {
+    "N": "bf_emma",
+    "M": "am_michael",
+    "W": "af_heart"
+  },
+  "tracks": {
+    "l1_1": {
+      "label": "Conversation 1",
+      "voices": {
+        "W": "af_bella",
+        "M": "am_adam"
+      },
+      "script": [
+        [
+          "M",
+          "Good morning! Dried apricots from Samarkand, sweet as honey. Sixty thousand a kilo."
+        ],
+        [
+          "W",
+          "Sixty? That's a lot. The man at the next stall sells them for fifty."
+        ],
+        [
+          "M",
+          "His are old, believe me. I'll do fifty-five for you, and add a small bag of raisins for nothing."
+        ],
+        [
+          "W",
+          "All right. One kilo, then, and thanks for the raisins."
+        ]
+      ]
+    },
+    "l1_2": {
+      "label": "Conversation 2",
+      "voices": {
+        "W": "bf_isabella",
+        "M": "bm_george"
+      },
+      "script": [
+        [
+          "W",
+          "Are we still going to the planetarium on Saturday?"
+        ],
+        [
+          "M",
+          "Yes. The show begins at eleven, but we must collect our tickets half an hour before that."
+        ],
+        [
+          "W",
+          "So shall we meet at half past ten?"
+        ],
+        [
+          "M",
+          "I'd rather come earlier, because parking is difficult. Let's meet at ten and have a coffee first."
+        ],
+        [
+          "W",
+          "Good idea. Ten o'clock, then."
+        ]
+      ]
+    },
+    "l1_3": {
+      "label": "Conversation 3",
+      "voices": {
+        "W": "af_nicole",
+        "M": "am_puck"
+      },
+      "script": [
+        [
+          "W",
+          "Rustam, are you playing on Sunday? We really need you in defence."
+        ],
+        [
+          "M",
+          "I'd love to. I've even swapped my shift at the shop. But I twisted my ankle on Thursday, running for the bus."
+        ],
+        [
+          "W",
+          "Oh no! Is it broken?"
+        ],
+        [
+          "M",
+          "No, it's a sprain, but the doctor says no football for two weeks. I'll just come and watch."
+        ]
+      ]
+    },
+    "l1_4": {
+      "label": "Conversation 4",
+      "voices": {
+        "W": "bf_emma",
+        "M": "bm_daniel"
+      },
+      "script": [
+        [
+          "M",
+          "Radio Sunrise, good afternoon."
+        ],
+        [
+          "W",
+          "Hello. I'm calling about today's phone-in programme. I heard the topic has changed."
+        ],
+        [
+          "M",
+          "Yes. It was going to be about school exams, but now it's about saving money on food."
+        ],
+        [
+          "W",
+          "Oh, good. I have lots of tips. Can I take part?"
+        ],
+        [
+          "M",
+          "Of course. The programme starts at four, and we take callers from ten minutes before."
+        ]
+      ]
+    },
+    "l1_5": {
+      "label": "Conversation 5",
+      "voices": {
+        "W": "af_sarah",
+        "M": "am_michael"
+      },
+      "script": [
+        [
+          "W",
+          "We've got the rice, carrots and onions. Is that everything for the plov?"
+        ],
+        [
+          "M",
+          "What about the meat? We agreed on lamb."
+        ],
+        [
+          "W",
+          "I bought that yesterday. It's in the fridge."
+        ],
+        [
+          "M",
+          "Good. And the cumin? I think we finished it on Friday."
+        ],
+        [
+          "W",
+          "Oh, you're right. We're low on oil, too, but there's enough for tonight."
+        ],
+        [
+          "M",
+          "Okay. I'll pop out and get the cumin."
+        ]
+      ]
+    },
+    "l1_6": {
+      "label": "Conversation 6",
+      "voices": {
+        "W": "af_heart",
+        "M": "bm_lewis"
+      },
+      "script": [
+        [
+          "M",
+          "Good morning, Doctor Karimova's surgery."
+        ],
+        [
+          "W",
+          "Hello. I have an appointment on Tuesday at nine, but I can't come because my train has been cancelled."
+        ],
+        [
+          "M",
+          "No problem. I can offer you Wednesday at ten, or Thursday at half past eight."
+        ],
+        [
+          "W",
+          "I'm at work on Wednesday morning, so Thursday is better, even though it's early."
+        ],
+        [
+          "M",
+          "Thursday at eight thirty, then."
+        ]
+      ]
+    },
+    "l1_7": {
+      "label": "Conversation 7",
+      "voices": {
+        "W": "af_nicole",
+        "M": "bm_george"
+      },
+      "script": [
+        [
+          "W",
+          "Did you hear about the new metro line? It opens next month."
+        ],
+        [
+          "M",
+          "No. I never watch television, so I miss a lot of news."
+        ],
+        [
+          "W",
+          "But you read the news on your phone, don't you?"
+        ],
+        [
+          "M",
+          "I used to, but there were too many adverts. Now I listen to a news podcast on my way to work. And if something big happens, my sister phones me."
+        ]
+      ]
+    },
+    "l1_8": {
+      "label": "Conversation 8",
+      "voices": {
+        "W": "af_sarah",
+        "M": "bm_lewis"
+      },
+      "script": [
+        [
+          "M",
+          "Kamila, have you chosen your project for the science fair?"
+        ],
+        [
+          "W",
+          "I wanted to make a model volcano, but half the class is doing that. Then I thought about growing plants under coloured lights."
+        ],
+        [
+          "M",
+          "Plants grow slowly, though, and the fair is in three weeks."
+        ],
+        [
+          "W",
+          "Exactly. So I'm going to test which paper aeroplane flies the furthest. It's quick, and my brother can help."
+        ]
+      ]
+    },
+    "l2": {
+      "label": "Talk",
+      "voices": {
+        "W": "af_nicole"
+      },
+      "script": [
+        [
+          "W",
+          "Good morning, everyone, and welcome to the Discovery Science Centre. My name is Nilufar, and I'm going to be your guide today. Before we begin the tour, let me give you some practical information.\n\nFirst, opening times. We're open every day except Monday, when the staff clean the exhibits and check the equipment. Tickets for adults cost forty thousand, and children between six and twelve pay half price. Children under six come in free, but they must stay with an adult at all times.\n\nNow, the tour itself. We'll start on the ground floor, in an exhibition called Body and Brain, where you can test your reaction time and even see a real human heart. Then we'll go up to the first floor, where the dome is. The space show in the dome takes twenty-five minutes, and it's our most popular activity, so seats fill up quickly. If you'd like to see it, please book at the information desk before you leave. It isn't possible to book at the dome itself.\n\nThe café is on the second floor, and I'd suggest having lunch there at about half past twelve. After lunch you can visit the Robot Lab. It used to be on the second floor too, but it moved last spring, so you'll now find it on the third floor. Children love it, because they can program a small robot to dance.\n\nFinally, a practical point. Please leave large bags and coats in the lockers next to the entrance. They're free to use. Right, if everyone is ready, let's begin."
+        ]
+      ]
+    },
+    "l3_1": {
+      "label": "Speaker 1",
+      "voices": {
+        "W": "af_sarah"
+      },
+      "speed": 0.97,
+      "script": [
+        [
+          "W",
+          "Last year I was so stressed at work that I couldn't switch off, even at night. I would lie awake going through my to-do list, and in the mornings I felt exhausted before the day had even begun. I needed some way of relaxing, and a friend suggested swimming. After a month I was sleeping well and felt much calmer. My doctor was pleased with my blood pressure, too, but that wasn't why I started."
+        ]
+      ]
+    },
+    "l3_2": {
+      "label": "Speaker 2",
+      "voices": {
+        "M": "am_michael"
+      },
+      "speed": 0.97,
+      "script": [
+        [
+          "M",
+          "When I moved to Tashkent for my new job, I didn't know anybody there. My evenings were very quiet, and I spent most of them at home with the television on. Then I saw a poster for a weekend football group in the park, so I went along, mainly because I wanted someone to talk to. The football was terrible, but I made some good friends, and now we always have tea together after every game."
+        ]
+      ]
+    },
+    "l3_3": {
+      "label": "Speaker 3",
+      "voices": {
+        "W": "bf_emma"
+      },
+      "speed": 0.97,
+      "script": [
+        [
+          "W",
+          "It began as a joke in the office. My colleague Timur said I couldn't run five kilometres without stopping, and I hate losing a bet. I hadn't run since school, so the first week was awful. But I trained for six weeks and managed it, though only just. Now we've both entered a half marathon, and it's Timur who complains about the training."
+        ]
+      ]
+    },
+    "l3_4": {
+      "label": "Speaker 4",
+      "voices": {
+        "M": "bm_george"
+      },
+      "speed": 0.97,
+      "script": [
+        [
+          "M",
+          "Last winter my doctor gave me a fright. He said that if I kept sitting at a desk all day, I'd have serious back problems within a few years. My daughter gave me a fitness watch for my birthday, and I do wear it, but honestly it was the doctor's warning that got me walking. Now I go for a long walk every evening."
+        ]
+      ]
+    },
+    "l4": {
+      "label": "Talk",
+      "voices": {
+        "M": "am_michael"
+      },
+      "speed": 0.92,
+      "script": [
+        [
+          "M",
+          "Welcome to City F M, everyone. My name's Jasur, and I've been a presenter here for eight years. I'll show you around in the order we'll visit each place.\n\nWe're standing in reception now. This is where our guests sit and wait before they go on air, so on a busy day you might see a famous singer here. Please don't ask for autographs, though. It makes them nervous before an interview.\n\nIf you follow me down this corridor, we come to Studio One. The news is read live from here at six, seven and eight o'clock every morning. The presenter you'll hear at six is Aziza, who arrives at four to prepare. When the red light above the door is on, we're broadcasting, so we'll have to walk past in silence.\n\nStudio Two is much friendlier to visitors. In the evenings it's used for our music programme, but in the afternoons anyone on a tour can sit at the microphone and try presenting a short show. Some people find it harder than it looks!\n\nNext door is the archive. It's a small room, but it's one of my favourite places, because it holds thousands of recordings, some of them from the nineteen sixties. We're slowly turning the oldest tapes into digital files so that they won't be lost. Visitors can't touch anything in there, though.\n\nAnd finally, the control room, at the end of the corridor. Our engineers work here. They cut and edit the interviews, remove background noise and blend the voices with the music, so that everything sounds smooth on air. It looks complicated, with all those buttons and screens, but every one of them has a simple purpose.\n\nOne last thing. Adverts aren't recorded in this building; they're made in a studio downtown. And the staff canteen upstairs is closed to visitors, so please don't go looking for coffee there. Right, please stay together, and shall we start?"
+        ]
+      ]
+    },
+    "l5_1": {
+      "label": "Conversation 1",
+      "voices": {
+        "W": "af_bella",
+        "M": "am_puck"
+      },
+      "speed": 0.93,
+      "script": [
+        [
+          "M",
+          "Dilnoza, I heard you want to sell baked samsa. Is that true?"
+        ],
+        [
+          "W",
+          "Yes! They use half the oil of the fried ones, and honestly they taste just as good. I've been testing the recipe for months."
+        ],
+        [
+          "M",
+          "You're a great cook, but is there a market? Most people prefer the traditional kind."
+        ],
+        [
+          "W",
+          "That's what I thought, until I took a tray to the office. Nearly everyone asked for more, and two colleagues want to order every week."
+        ],
+        [
+          "M",
+          "That's encouraging. My only worry is your job. You work until six every day, so when would you find the time to bake?"
+        ],
+        [
+          "W",
+          "At weekends, at first. The ingredients aren't expensive, and I can freeze the samsa, so it's really a question of my energy."
+        ],
+        [
+          "M",
+          "Then go for it. I'll be your first customer, and I'll tell my whole family."
+        ]
+      ]
+    },
+    "l5_2": {
+      "label": "Conversation 2",
+      "voices": {
+        "W": "bf_isabella",
+        "M": "bm_daniel"
+      },
+      "speed": 0.93,
+      "script": [
+        [
+          "W",
+          "Coach, my knee has been hurting for a week, and the race is only a month away. Should I stop training?"
+        ],
+        [
+          "M",
+          "Let's think first. Where did the pain start?"
+        ],
+        [
+          "W",
+          "On my long run last Sunday, on the road by the river. I wondered whether the hard surface was to blame."
+        ],
+        [
+          "M",
+          "It can be a factor, but you've run on roads all year without trouble, and your shoes are new. To be honest, I think you've simply run six days a week, and your body hasn't had a chance to recover."
+        ],
+        [
+          "W",
+          "Oh. I thought more training meant better results."
+        ],
+        [
+          "M",
+          "Up to a point. Don't stop completely, because you'd lose fitness, but for the next two weeks, replace three of your runs with swimming or cycling. Then we'll see how the knee feels."
+        ],
+        [
+          "W",
+          "That sounds sensible. And what about the race?"
+        ],
+        [
+          "M",
+          "Let's decide that in two weeks' time, when we know more."
+        ]
+      ]
+    },
+    "l5_3": {
+      "label": "Conversation 3",
+      "voices": {
+        "W": "af_nicole",
+        "M": "am_adam"
+      },
+      "speed": 1.0,
+      "script": [
+        [
+          "W",
+          "Have you seen the editor's email? She wants the university magazine to become online-only next year."
+        ],
+        [
+          "M",
+          "I have. Printing is expensive, I know, but when we leave copies in the canteen, everyone picks one up. If it's a website, who will actually look at it?"
+        ],
+        [
+          "W",
+          "We could share every article on social media. Far more students would see it than the few hundred who take a printed copy."
+        ],
+        [
+          "M",
+          "Maybe, but they'd read one headline and move on. In print, people at least read whole articles, especially the long interviews."
+        ],
+        [
+          "W",
+          "Fair enough. What if we did both? A smaller printed edition once a term, and everything else online?"
+        ],
+        [
+          "M",
+          "That could work. We'd save money and keep the feel of a real magazine. Let's suggest it on Monday."
+        ]
+      ]
+    },
+    "l6": {
+      "label": "Lecture",
+      "voices": {
+        "M": "bm_lewis"
+      },
+      "speed": 0.97,
+      "script": [
+        [
+          "M",
+          "Good afternoon, everyone. Today I'd like to look at something we all take for granted, which is how we experience flavour. Most people assume that flavour is simply a matter of taste, and that taste happens on the tongue. In fact, that is only part of the story.\n\nLet's start with the tongue. It's covered in tiny sensors called taste buds, and an adult may have anything from two thousand to ten thousand of them. They respond to five basic tastes: sweet, sour, salty, bitter and, the most recent addition to the list, umami. Umami was identified in nineteen oh eight by a Japanese chemist, Kikunae Ikeda. He wanted to know why a soup made with a certain kind of seaweed tasted so rich, and he eventually isolated the substance responsible, glutamate, which we now know is also present in tomatoes, mushrooms and aged cheese.\n\nHowever, taste buds alone cannot explain why a strawberry tastes like a strawberry. Most of what we call flavour actually comes from smell. As you chew, aromas travel from the back of your mouth up into your nose, and the brain combines the two signals. That is why food seems so dull when you have a cold: your taste buds still work, but the information from your nose is missing. Some researchers claim that smell provides up to eighty percent of flavour. That figure is hard to measure, so treat it with caution.\n\nOther senses matter too. In one well-known experiment, volunteers were given identical desserts and asked to rate them. The dessert served on a round white plate was judged sweeter than exactly the same dessert served on a square black one. Even sound plays a part. The steady noise inside an aircraft cabin seems to dull our sense of sweetness and saltiness, which may be why so many passengers order tomato juice on flights.\n\nTemperature and texture also play a role. Warm food releases more aroma than cold food, which is one reason why a dish that seems delicious when hot can taste flat once it has cooled. Texture affects our judgement in a similar way: most people expect a crisp biscuit to taste fresher than a soft one, even when the recipe is identical.\n\nSo what does this mean in practice? Chefs have long understood that we eat with our eyes and ears as well as our mouths, and food scientists are now using the same ideas to help people eat less salt or sugar without losing the pleasure of a meal. We'll return to that after the break."
+        ]
+      ]
+    },
+    "sq1": {
+      "label": "Examiner question 1",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "What do you usually have for dinner, and who cooks it?"
+        ]
+      ]
+    },
+    "sq2": {
+      "label": "Examiner question 2",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "What do you do to keep fit and healthy?"
+        ]
+      ]
+    },
+    "sq3": {
+      "label": "Examiner question 3",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "How do you keep in touch with friends and family who live far away?"
+        ]
+      ]
+    },
+    "sq4": {
+      "label": "Examiner question 4",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "Look at the two pictures. Compare them, and tell me what the advantages of shopping in each place are."
+        ]
+      ]
+    },
+    "sq5": {
+      "label": "Examiner question 5",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "Which of these two ways of shopping do you prefer? Why?"
+        ]
+      ]
+    },
+    "sq6": {
+      "label": "Examiner question 6",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "How has online shopping changed the way people buy things?"
+        ]
+      ]
+    },
+    "sq7": {
+      "label": "Examiner question 7",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "Look at the picture. Tell me about a sports event that you have watched or taken part in. What was the event? Who were you with? And why do you remember it?"
+        ]
+      ]
+    },
+    "sq8": {
+      "label": "Examiner question 8",
+      "speed": 0.95,
+      "script": [
+        [
+          "N",
+          "Read the statement: Everyone should learn a second foreign language at school. Now discuss both sides of the argument and give your own opinion. Use at least two points from each list."
+        ]
+      ]
+    }
+  }
+}
