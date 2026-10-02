@@ -112,10 +112,14 @@ php -S 127.0.0.1:8080 -t public bin/dev-router.php
 
 ### Hostingga joylash (Apache, masalan reg.ru)
 
+Batafsil yo'riqnoma (joylashuv variantlari, IP va proksi, zaxira, muammolar): `deploy/SERVERGA-JOYLASH.md`.
+Serverga yuklash paketi (keraksiz va xavfli fayllarsiz, `MANIFEST.txt` bilan): `python deploy/build.py`.
+
 1. Barcha fayllarni serverga yuklang. **Veb-ildiz (document root) `public/` papkasi bo'lishi kerak.** Agar hostingda
-   veb-ildizni o'zgartirib bo'lmasa, `public/` ichidagini `public_html/` ga, qolgan papkalarni (`src`, `config`, `database`,
-   `bin`, `storage`) bir daraja yuqoriga joylang.
+   veb-ildizni o'zgartirib bo'lmasa, `public/` ichidagini (yashirin `.htaccess` bilan) `public_html/` ga, qolgan papkalarni
+   (`src`, `config`, `database`, `bin`, `content`, `storage`) bir daraja yuqoriga joylang.
 2. `config/config.php` yarating (`config.example.php` dan nusxa): baza turi, MySQL ma'lumotlari, `storage_path`.
+   Fayl bo'lmasa API ishlamaydi va "Sozlama fayli topilmadi" xabarini qaytaradi (namunaviy sozlama bilan indamay ishlab ketmaydi).
 3. `php bin/install.php --admin-login=admin --admin-password=... --content` ni bir marta ishga tushiring (SSH yoki hosting panelidagi cron orqali).
    `--content` 3 ta tayyor mockni joylaydi; keyin ham `php bin/seed-content.php` bilan qo'shsa bo'ladi (bor mocklar o'tkazib yuboriladi).
 4. `storage/` papkasiga yozish huquqi bering. U veb-ildizdan tashqarida bo'lsin (ichida bo'lsa, `storage/.htaccess` kirishni taqiqlaydi).
@@ -130,8 +134,17 @@ ishlaganda (yuklama sinovi) ikkala bazada ham xato yo'q, javoblarni saqlash so'r
 o'quvchilarni 5–10 daqiqa oralig'ida kiritish yoki oldindan kirib turishni so'rash tavsiya etiladi. Imtihon davomidagi
 so'rovlar (javoblarni saqlash) engil: p95 < 20 ms.
 
-**Teskari proksi (Cloudflare, Nginx)** ortida `config.php` da `'client_ip_header' => 'HTTP_CF_CONNECTING_IP'` (yoki
-`HTTP_X_FORWARDED_FOR`) ko'rsating, aks holda kirish/ro'yxatdan o'tish cheklovlari hamma o'quvchini bitta IP deb hisoblaydi.
+**Kirish cheklovlari va IP.** 15 daqiqada bitta login + IP uchun 8 ta xato urinish; bitta IP'dan jami xatolar —
+`login_ip_limit` (standart 300, `0` — o'chirilgan), ro'yxatdan o'tish — `register_ip_limit` (standart 100). Markazdagi
+barcha kompyuterlar bitta tashqi IP orqali chiqsa, `login_ip_limit` ni oshiring. Administrator va ekspertga umumiy IP
+chegarasi qo'llanmaydi; bloklarni **Sozlamalar → Kirish bloklari** ko'rsatadi va tozalaydi (u yerda server sizni qaysi IP
+bilan ko'rayotgani ham chiqadi).
+
+Sayt **teskari proksi** ortida bo'lsa (hosting nginx'i, Cloudflare) va hamma bitta IP bo'lib ko'rinsa, `config.php` da
+`'client_ip_header' => 'HTTP_X_FORWARDED_FOR'` qo'ying. Sarlavha faqat so'rov `trusted_proxies` dagi manzildan kelganda
+o'qiladi (standart `['private']` — shu host va ichki tarmoq; Cloudflare uchun `['private', 'cloudflare']`) va o'ngdan
+chapga tekshiriladi, shuning uchun o'quvchi uni soxtalashtirib cheklovni chetlab o'ta olmaydi. Proksi bo'lmasa, sarlavhani
+bo'sh qoldiring.
 
 ### Nginx
 
@@ -142,6 +155,7 @@ location /api/ { rewrite ^/api/(.*)$ /api.php?route=$1 last; }
 location ~ \.php$ { include fastcgi_params; fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
 location / { try_files $uri $uri/ =404; }
 client_max_body_size 64m;
+location ~ /\.(?!well-known/) { deny all; }   # .user.ini va boshqa yashirin fayllar
 
 # Xavfsizlik sarlavhalari (Apache'da public/.htaccess qo'yadi; matn src/Http/Security.php dagi bilan bir xil bo'lsin)
 add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
@@ -153,11 +167,15 @@ add_header Permissions-Policy "camera=(), geolocation=(), microphone=(self), ful
 ### Zaxira nusxa
 
 ```bash
-php bin/backup.php --keep=14        # baza + audio/rasmlar/Speaking yozuvlari → storage/backups/backup-<sana>.zip
+php bin/backup.php --keep=4                   # baza + audio/rasmlar/Speaking yozuvlari → storage/backups/backup-<sana>.zip
+php bin/backup.php --no-uploads --keep=14     # faqat baza → storage/backups/backup-db-<sana>.zip
 ```
 
-Cron (har kecha 03:30): `30 3 * * * php /yo'l/bin/backup.php --keep=14`. SQLite'da imtihon davomida ham xavfsiz;
-MySQL'da `mysqldump` kerak. Tiklash: ZIP'ni oching, `database.sqlite` (yoki `dump.sql`) va `uploads/` ni joyiga qo'ying.
+Har tur o'zicha saqlanadi (`--keep` — shu turdagi eng yangi nusxalar soni). Cron: har kecha faqat baza
+(`30 3 * * * php /yo'l/bin/backup.php --no-uploads --keep=14`), har hafta to'liq (`45 3 * * 0 php /yo'l/bin/backup.php --keep=4`)
+— to'liq nusxa yuklangan fayllar hajmicha joy oladi. SQLite'da imtihon davomida ham xavfsiz. MySQL'da `mysqldump`
+(yoki `mariadb-dump`) bo'lsa u ishlatiladi, bo'lmasa yoki hostingda `exec()` o'chiq bo'lsa — PHP'ning o'zi izchil SQL dump
+yozadi. Tiklash: ZIP'ni oching, `database.sqlite` (yoki `dump.sql`) va `uploads/` ni joyiga qo'ying.
 
 ---
 
@@ -202,7 +220,7 @@ Speaking 8 savol (savollar ekzaminator ovozida o'qiladi) va 3 ta rasm. Qiyinlik 
 ## Testlar
 
 ```bash
-php tests/php/run.php            # 56 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, tayyor mocklar
+php tests/php/run.php            # 72 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, zaxira, tayyor mocklar
 MOCK_TEST_DB=mysql php tests/php/run.php   # xuddi shular MySQL/MariaDB da (MOCK_TEST_MYSQL_HOST/PORT/DB/USER/PASS; bazani tozalaydi!)
 node --test tests/js/*.test.mjs  # JS testlari: Listening vaqt jadvali (server bilan bir xil), so'z sanash
 npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright): o'quvchi, admin va ekspert  (MOCK_E2E_DB=mysql ham mumkin)
@@ -228,6 +246,7 @@ src/                    PHP: marshrutlar, kontrollerlar, xizmatlar (urinishlar, 
 database/               SQLite va MySQL sxemalari
 content/                tayyor mocklar (mocks/mock-01…03: savollar, audio, rasmlar), TTS va rasm vositalari (tools/)
 bin/                    o'rnatish, tayyor/namunaviy mocklarni joylash, zaxira nusxa, lokal server marshrutlovchisi
+deploy/                 serverga yuklash paketi: build.py, yo'riqnoma, ildiz .htaccess va public/.user.ini
 demo/                   namunaviy (sinov uchun) mocklar
 tests/                  PHP, JS, E2E, tayyor mocklar va yuklama testlari
 storage/                baza, audio, rasmlar, Speaking yozuvlari (git'ga qo'shilmaydi)

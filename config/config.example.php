@@ -34,9 +34,25 @@ return [
 
     'timezone' => 'Asia/Tashkent',
 
-    // Sayt teskari proksi (Cloudflare, Nginx) ortida bo'lsa, haqiqiy IP shu sarlavhadan olinadi
-    // (masalan 'HTTP_CF_CONNECTING_IP' yoki 'HTTP_X_FORWARDED_FOR'). Faqat proksi ishonchli bo'lsa yoqing.
+    // Kirish cheklovlari (15 daqiqalik oynada). Har bir login+IP — 8 ta xato urinish (o'zgarmas).
+    // Bitta IP'dan jami xato kirishlar: 'login_ip_limit' (0 — chegara yo'q). Markazdagi barcha kompyuterlar bitta
+    // tashqi IP orqali chiqadi: kompyuter sinfida imtihon bo'lsa oshiring (masalan 1000) yoki 0 qiling.
+    // Administrator va ekspertga bu umumiy chegara qo'llanmaydi; bloklarni "Sozlamalar → Kirish bloklari" ochadi.
+    'login_ip_limit' => 300,
+    // Bitta IP'dan 15 daqiqada o'zi ro'yxatdan o'tishlar soni (0 — chegara yo'q).
+    'register_ip_limit' => 100,
+
+    // Sayt teskari proksi (hosting nginx'i, Cloudflare) ortida bo'lsa va hamma bitta IP bo'lib ko'rinsa,
+    // haqiqiy IP shu sarlavhadan olinadi — odatda 'HTTP_X_FORWARDED_FOR'. Sarlavha faqat so'rov
+    // 'trusted_proxies' dagi manzildan kelganda o'qiladi va o'ngdan chapga tekshiriladi, shuning uchun mijoz uni
+    // soxtalashtira olmaydi. Bo'sh qoldirilsa — REMOTE_ADDR (eng xavfsiz; proksi bo'lmasa shunday qoldiring).
     'client_ip_header' => '',
+    // Ishonchli proksilar: IP yoki CIDR, hamda kalit so'zlar 'private' (127.0.0.0/8, 10/8, 172.16/12, 192.168/16,
+    // ::1, fc00::/7 — shu hostdagi yoki ichki tarmoqdagi proksi) va 'cloudflare' (Cloudflare manzillari).
+    // Masalan: ['private'] yoki ['private', 'cloudflare']. Server markazning ichki tarmog'ida proksi ortida tursa
+    // (o'quvchilar ham ichki tarmoqda), 'private' o'rniga faqat proksining aniq manzilini yozing, masalan ['127.0.0.1'] —
+    // aks holda o'quvchi sarlavhani soxtalashtira oladi.
+    'trusted_proxies' => ['private'],
 
     // Xatoliklar tafsilotini javobda ko'rsatish (faqat ishlab chiqishda yoqing).
     'debug' => false,

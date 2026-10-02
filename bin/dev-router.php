@@ -5,6 +5,12 @@
 
 declare(strict_types=1);
 
+// Faqat PHP'ning o'rnatilgan serveri (php -S) uchun.
+if (PHP_SAPI !== 'cli-server') {
+    http_response_code(404);
+    exit;
+}
+
 require_once __DIR__ . '/../src/Http/Security.php';
 
 /** HTML sahifani xavfsizlik sarlavhalari bilan berish (Apache'da buni .htaccess bajaradi). */

@@ -1,0 +1,20 @@
+# Multilevel Mock — zaxira joylashuv (C): butun loyiha daraxti veb-ildizda (yoki uning ichidagi papkada, masalan /mock/).
+# Har bir so'rov public/ ichiga yo'naltiriladi; boshqa papkalar tashqaridan ochilmaydi.
+# Kerak: mod_rewrite va .htaccess ruxsati (AllowOverride All; kamida FileInfo, Options, AuthConfig, Limit).
+# public/.htaccess o'z ishini davom ettiradi. Tavsiya etilgan joylashuvda (A: veb-ildiz = public/) bu fayl o'qilmaydi.
+# Faqat nginx'li hosting .htaccess ni umuman o'qimaydi — u yerda C joylashuvi XAVFLI, faqat A ni ishlating.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # /admin -> /admin/ (aks holda mod_dir manzilga /public/ qo'shib yuboradi)
+    RewriteRule ^admin$ %{REQUEST_URI}/ [R=301,L]
+    # public/ ichida bo'lmagan hamma narsani public/ ga o'tkazish. Yo'l papkaga nisbatan (per-directory)
+    # tekshiriladi, shuning uchun sayt pastki papkada tursa ham ishlaydi va aylanib qolmaydi.
+    RewriteRule ^(?!public/)(.*)$ public/$1 [L]
+</IfModule>
+
+# Ichki papkalar va xizmat fayllari (mod_rewrite o'chiq bo'lsa ham): 404
+<IfModule mod_alias.c>
+    RedirectMatch 404 (^|/)(src|config|database|bin|content|storage|demo|tests|deploy|node_modules|\.git|\.github)(/|$)
+    RedirectMatch 404 (^|/)(\.htaccess|\.user\.ini|\.gitignore|README\.md|SERVERGA-JOYLASH\.md|MANIFEST\.txt|package(-lock)?\.json)$
+</IfModule>

@@ -1,3 +1,8 @@
-# Bu papkadagi fayllar (baza, audio, yozuvlar) hech qachon to'g'ridan-to'g'ri ochilmasligi kerak.
-Require all denied
-Deny from all
+# Bu papkadagi fayllar (baza, audio, yozuvlar, zaxira nusxalar) hech qachon to'g'ridan-to'g'ri ochilmasligi kerak.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>

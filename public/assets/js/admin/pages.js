@@ -61,6 +61,7 @@ function auditLabel(action) {
     user_update: "Foydalanuvchi o'zgartirildi",
     user_password_reset: 'Parol yangilandi',
     settings_update: 'Sozlamalar o\'zgardi',
+    throttle_clear: 'Kirish bloklari tozalandi',
   }[action] || action;
 }
 
@@ -245,11 +246,118 @@ export async function settingsPage(root) {
       field('Bitta o\'quvchi bitta mockni ko\'pi bilan', cap, "Qat'iy yuqori chegara. Har bir mockda bundan kam son belgilash mumkin."),
       h('div', { class: 'actions' }, saveBtn)
     ),
+    securityCard(),
     h('div', { class: 'card form-narrow' },
       h('h3', { text: 'Parolni almashtirish' }),
       passwordForm()
     )
   );
+}
+
+// ---------------------------------------------------------------------
+// Kirish bloklari va IP aniqlash diagnostikasi
+// ---------------------------------------------------------------------
+
+/** Ichki yoki lokal manzil: 127.x, 10.x, 172.16–31.x, 192.168.x, 169.254.x, ::1, fc00::/7, fe80::/10. */
+const LOCAL_IP = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/i;
+
+function securityCard() {
+  const title = h('h3', { text: 'Kirish bloklari' });
+  const card = h('div', { class: 'card form-narrow' }, title, spinner());
+  let busy = false;
+
+  const stat = (label, value, hint) => h('div', { class: 'stat' },
+    h('span', { class: 'stat-label', text: label }),
+    h('span', { class: 'stat-value', text: String(value) }),
+    hint ? h('span', { class: 'stat-hint', text: hint }) : null
+  );
+
+  const ipNote = (ip) => {
+    if (ip.header && ip.header_used && LOCAL_IP.test(ip.detected)) {
+      // Mijozning o'zi ham "ishonchli" tarmoqda bo'lsa, zanjirda undan chapdagi (o'zi yozgan) qiymat olinadi.
+      return h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', null,
+        'IP proksi sarlavhasidan olinmoqda, lekin sizning manzilingiz ichki tarmoqda. O\'quvchilar ham shu tarmoqda bo\'lsa, ular sarlavhani soxtalashtira oladi: config.php dagi ',
+        h('code', { text: 'trusted_proxies' }), " ga faqat proksining aniq manzilini yozing (masalan ", h('code', { text: "['127.0.0.1']" }),
+        ") yoki proksi bo'lmasa sarlavhani o'chiring."));
+    }
+    if (ip.header && ip.header_used) {
+      return h('div', { class: 'alert alert-ok' }, icon('check'), h('div', null,
+        'Haqiqiy IP ishonchli proksi qo\'shgan ', h('code', { text: ip.header }), ' sarlavhasidan olinmoqda.'));
+    }
+    if (ip.header) {
+      return h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', null,
+        h('code', { text: `client_ip_header = ${ip.header}` }),
+        ip.header_value
+          ? " bu so'rovda ishlatilmadi: so'rov trusted_proxies ro'yxatidagi manzildan kelmagan. Yuqoridagi REMOTE_ADDR proksi manzili bo'lsa, uni config.php dagi trusted_proxies ga qo'shing."
+          : " bu so'rovda yo'q. Sarlavha nomini tekshiring (odatda HTTP_X_FORWARDED_FOR)."));
+    }
+    if (LOCAL_IP.test(ip.detected)) {
+      return h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', null,
+        "Server sizni ichki manzil bilan ko'rmoqda. Platforma markazning ichki tarmog'ida ishlasa, bu to'g'ri. ",
+        "Sayt internetda (hostingda) bo'lsa, u proksi ortida va hamma o'quvchi bitta IP bo'lib ko'rinadi — config.php da ",
+        h('code', { text: "'client_ip_header' => 'HTTP_X_FORWARDED_FOR'" }), " qo'ying."));
+    }
+    return null;
+  };
+
+  const draw = ({ throttle: t, ip }) => {
+    const limitText = t.ip_limit > 0 ? `${t.ip_limit} ta` : 'cheklanmagan miqdorda';
+    card.replaceChildren(
+      title,
+      h('p', { class: 'muted small', text: `${t.window_minutes} daqiqa ichida bitta login + IP uchun ${t.login_limit} ta, bitta IP'dan jami ${limitText} xato kirishga ruxsat bor. Administrator va ekspertga umumiy IP chegarasi qo'llanmaydi.` }),
+      h('div', { class: 'small' },
+        h('div', null, "Server sizni shu manzil bilan ko'rmoqda: ", h('code', { text: ip.detected })),
+        h('div', { class: 'muted' }, 'REMOTE_ADDR: ', h('code', { text: ip.remote_addr || '—' }),
+          ip.header ? [' · ', ip.header, ': ', h('code', { text: ip.header_value || "yo'q" })] : null)
+      ),
+      ipNote(ip),
+      h('div', { class: 'stats' },
+        stat("Sizning IP'dan xatolar", t.ip_limit > 0 ? `${t.ip_failures} / ${t.ip_limit}` : t.ip_failures),
+        stat('Bloklangan loginlar', t.blocked_logins, `login + IP, ${t.login_limit} ta xatodan keyin`)
+      ),
+      table([
+        { title: 'IP manzil', render: (r) => h('code', { text: r.ip }) },
+        { title: 'Xato kirishlar', class: 'num', render: (r) => r.failures },
+        { title: 'Holat', render: (r) => (r.blocked ? h('span', { class: 'danger-text', text: 'Bloklangan' }) : '—') },
+        { title: '', render: (r) => h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => clear('ip', r.ip) }, 'Blokni ochish')) },
+      ], t.top_ips, { empty: `Oxirgi ${t.window_minutes} daqiqada xato kirish bo'lmagan.` }),
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn btn-ghost', type: 'button', onclick: load }, 'Yangilash'),
+        h('button', { class: 'btn', type: 'button', onclick: () => clear('mine') }, "Mening IP'imni ochish"),
+        h('button', { class: 'btn btn-danger', type: 'button', onclick: () => clear('all') }, 'Hammasini tozalash')
+      )
+    );
+  };
+
+  async function load() {
+    try {
+      draw(await get('admin/security/throttle'));
+    } catch (err) {
+      card.replaceChildren(title, errorBox(err.message, load));
+    }
+  }
+
+  async function clear(scope, ip = '') {
+    if (busy) return;
+    if (scope === 'all' && !(await confirmDialog(
+      'Barcha bloklarni tozalaysizmi?',
+      "Xato kirishlar hisobi nolga tushadi: bloklangan o'quvchilar va IP manzillar darhol qayta kira oladi.",
+      'Tozalash', 'danger'
+    ))) return;
+    busy = true;
+    try {
+      const res = await post('admin/security/throttle/clear', scope === 'ip' ? { scope, ip } : { scope });
+      toast(res.removed > 0 ? `Bloklar tozalandi (${res.removed} ta yozuv).` : "Tozalanadigan blok yo'q edi.", 'success');
+      draw(res);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      busy = false;
+    }
+  }
+
+  load();
+  return card;
 }
 
 function passwordForm() {

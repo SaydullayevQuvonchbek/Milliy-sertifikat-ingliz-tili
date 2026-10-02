@@ -12,13 +12,27 @@ use App\Router;
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
+header_remove('X-Powered-By');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
 
+function send_status(int $status): void
+{
+    // Apache + mod_php o'zi bilmaydigan kodlarni (419, 425) brauzerga "500 Internal Server Error" deb yuboradi (jurnalda
+    // esa 419 turadi); hosting proksisi 5xx javobni o'z sahifasi bilan almashtirsa, JSON xabari yo'qoladi.
+    // Shuning uchun bu kodlar uchun holat qatori aniq yoziladi.
+    $reasons = [419 => 'Page Expired', 425 => 'Too Early'];
+    if (isset($reasons[$status])) {
+        header("HTTP/1.1 {$status} {$reasons[$status]}", true, $status);
+    } else {
+        http_response_code($status);
+    }
+}
+
 function send_json(mixed $data, int $status = 200): void
 {
-    http_response_code($status);
+    send_status($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);

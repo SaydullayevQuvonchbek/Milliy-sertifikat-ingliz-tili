@@ -2,6 +2,9 @@ Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # Yashirin fayllar (.user.ini — PHP sozlamalari, .htaccess va h.k.) tashqaridan ochilmaydi: 403.
+    # .well-known/ (SSL sertifikatini tasdiqlash) bundan mustasno.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
     RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
 </IfModule>
 

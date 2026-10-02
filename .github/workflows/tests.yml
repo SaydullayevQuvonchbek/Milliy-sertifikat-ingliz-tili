@@ -24,6 +24,8 @@ jobs:
         run: php tests/php/run.php
       - name: JS testlari
         run: node --test tests/js/*.test.mjs
+      - name: Serverga yuklash paketi yig'iladi
+        run: python3 deploy/build.py --out "$RUNNER_TEMP/ingliz-tili-mock.zip"
 
   mysql:
     runs-on: ubuntu-latest

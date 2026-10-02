@@ -71,21 +71,16 @@ final class Request
     }
 
     /**
-     * Mijoz IP manzili. Sayt teskari proksi (Cloudflare, Nginx) ortida bo'lsa, config'da `client_ip_header`
-     * ("HTTP_CF_CONNECTING_IP" yoki "HTTP_X_FORWARDED_FOR") ko'rsatiladi — aks holda hamma o'quvchi bitta IP bo'lib ko'rinadi.
-     * Sarlavha faqat proksi ishonchli bo'lsa yoqiladi: aks holda mijoz uni soxtalashtira oladi.
+     * Mijoz IP manzili. Sayt teskari proksi (hosting nginx'i, Cloudflare) ortida bo'lsa, config'da `client_ip_header`
+     * va `trusted_proxies` ko'rsatiladi; sarlavha faqat ishonchli proksidan kelgan so'rovda o'qiladi (ClientIp).
      */
-    private static function clientIp(): string
+    public static function clientIp(): string
     {
-        $remote = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
-        $header = (string) \App\Config::get('client_ip_header', '');
-        if ($header !== '' && !empty($_SERVER[$header])) {
-            $first = trim(explode(',', (string) $_SERVER[$header])[0]);
-            if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
-                return $first;
-            }
-        }
-        return $remote;
+        return ClientIp::resolve(
+            $_SERVER,
+            (string) \App\Config::get('client_ip_header', ''),
+            \App\Config::get('trusted_proxies') ?? ['private']
+        );
     }
 
     public function input(string $key, mixed $default = null): mixed

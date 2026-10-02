@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\AdminAttemptController as Attempts;
 use App\Controllers\AdminMockController as Mocks;
+use App\Controllers\AdminSecurityController as SecurityCtl;
 use App\Controllers\AdminSettingsController as SettingsCtl;
 use App\Controllers\AdminUserController as Users;
 use App\Controllers\AuthController as AuthCtl;
@@ -80,6 +81,8 @@ return static function (Router $r): void {
     $r->get('/admin/users/{id}/attempts', [Users::class, 'attempts']);
     $r->get('/admin/settings', [SettingsCtl::class, 'get']);
     $r->put('/admin/settings', [SettingsCtl::class, 'update']);
+    $r->get('/admin/security/throttle', [SecurityCtl::class, 'throttle']);
+    $r->post('/admin/security/throttle/clear', [SecurityCtl::class, 'clear']);
 
     // Ekspert
     $r->get('/expert/queue', [Expert::class, 'queue']);

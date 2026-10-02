@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth;
+use App\Config;
 use App\Db;
 use App\Http\HttpError;
 use App\Http\Request;
@@ -44,8 +45,9 @@ final class AuthController
         if (!Settings::get('registration_open')) {
             throw new HttpError(403, 'registration_closed', "Ro'yxatdan o'tish yopiq. Login va parolni administratordan oling.");
         }
-        // Avtomatik ommaviy ro'yxatdan o'tishning oldini olish (bitta markaz IP'si ostida yuzlab o'quvchi bo'lishi mumkin).
-        Auth::rateLimit('register', $r->ip, 100, 900);
+        // Avtomatik ommaviy ro'yxatdan o'tishning oldini olish (bitta markaz IP'si ostida yuzlab o'quvchi bo'lishi
+        // mumkin — chegara config'da 'register_ip_limit', 0 — o'chirilgan).
+        Auth::rateLimit('register', $r->ip, max(0, (int) (Config::get('register_ip_limit') ?? 100)), 900);
         $name = trim(preg_replace('/\s+/u', ' ', Util::cleanText($r->str('full_name'), 120)) ?? '');
         $phone = Util::normalizePhone($r->str('phone'));
         $password = (string) $r->input('password', '');
