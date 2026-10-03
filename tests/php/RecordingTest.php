@@ -23,6 +23,13 @@ function rec_mp4_head(): string
     return "\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2" . "\x00\x00\x00\x08free" . str_repeat("\x11", 64);
 }
 
+/** Kichik WAV (Speaking javobi sifatida yuklash uchun). */
+function rec_wav(): string
+{
+    $n = 800;
+    return 'RIFF' . pack('V', 36 + $n) . 'WAVEfmt ' . pack('VvvVVvv', 16, 1, 1, 8000, 8000, 1, 8) . 'data' . pack('V', $n) . str_repeat("\x80", $n);
+}
+
 function rec_file(string $bytes): array
 {
     $tmp = tempnam(sys_get_temp_dir(), 'piece');
@@ -128,7 +135,7 @@ test('early_finish yoqiq (standart): bo\'limni oldinroq yakunlash mumkin', funct
     eq('completed', $a['status']);
 });
 
-test('speaking_skip: yoqilsa keyingi savol darhol ochiladi, aks holda kutiladi', function (): void {
+test('speaking_skip: javob yuklangach keyingi savol darhol ochiladi; javobsiz — kutiladi; o\'chiq bo\'lsa — doim kutiladi', function (): void {
     foreach ([false, true] as $skip) {
         $mock = make_mock(['settings' => ['sections' => ['S'], 'flow' => ['speaking_skip' => $skip]]]);
         $user = make_user('student', '+99890111' . ($skip ? '0001' : '0002'));
@@ -137,6 +144,9 @@ test('speaking_skip: yoqilsa keyingi savol darhol ochiladi, aks holda kutiladi',
         [$a, $q1] = A::speakingNext($a, $mock);
         eq(1, (int) $q1['no']);
         Util::$testNowMs += 5_000; // javob 30 soniyalik, 5 soniyada tugatildi
+        // Javob yuklanmagan — barcha savollarni ketma-ket ochib ko'rib bo'lmaydi.
+        throws(fn () => A::speakingNext($a, $mock), 'too_early');
+        $a = A::speakingUpload($a, $mock, 1, rec_file(rec_wav()), 5.0);
         if ($skip) {
             [$a, $q2] = A::speakingNext($a, $mock);
             eq(2, (int) $q2['no']);
@@ -160,11 +170,42 @@ test('majburiy kamera: holat "ok" bo\'lmaguncha birinchi bo\'lim boshlanmaydi', 
     eq('active', $a['stage_state']);
     $meta = Util::decode($a['meta_json']);
     eq('ok', $meta['proctor']['camera']);
-    ok(!empty($meta['proctor']['camera_missing']), 'avval ishlamagani belgilanishi kerak');
-    ok(!empty($meta['proctor']['screen_missing']));
+    // Darvozadagi oraliq holat (avval rad etib, keyin yoqqan) belgi qo'ymaydi; boshlanganda ishlamagan ekran — belgi.
+    ok(empty($meta['proctor']['camera_missing']), 'darvozadagi oraliq holat belgi qo\'ymasligi kerak');
+    ok(!empty($meta['proctor']['screen_missing']), 'ekran boshlanganda ishlamagan');
 });
 
-test('majburiy ekran: Speaking boshlanishida ham tekshiriladi; ixtiyoriyda tekshirilmaydi', function (): void {
+test('belgilar: kamera yoqilib ekran hali so\'ralmagan holat belgi qo\'ymaydi; bo\'lim davomidagi uzilish — belgi', function (): void {
+    [$a, $mock] = rec_setup();
+    $a = A::setProctorStatus($a, $mock, ['camera' => 'ok']);             // ekran hali so'ralmagan — yuborilmaydi
+    $a = A::setProctorStatus($a, $mock, ['camera' => 'ok', 'screen' => 'ok']);
+    $a = A::startSection($a, $mock, 'L');
+    $p = Util::decode($a['meta_json'])['proctor'];
+    ok(empty($p['camera_missing']) && empty($p['screen_missing']), 'yolg\'on belgi: ' . json_encode($p));
+    $a = A::setProctorStatus($a, $mock, ['screen' => 'stopped']);
+    ok(!empty(Util::decode($a['meta_json'])['proctor']['screen_missing']), "bo'lim davomida to'xtatildi");
+    // Holat umuman yuborilmagan bo'lsa (masalan, eski brauzer keshi) — yozuv yo'q, belgi qo'yiladi.
+    [$b, $mock2] = rec_setup();
+    $b = A::startSection($b, $mock2, 'L');
+    $p = Util::decode($b['meta_json'])['proctor'];
+    ok(!empty($p['camera_missing']) && !empty($p['screen_missing']));
+});
+
+test('majburiy kamera faqat birinchi bo\'limda tekshiriladi (tanaffusdan keyingi bo\'lim to\'xtab qolmaydi)', function (): void {
+    [$a, $mock] = rec_setup(['sections' => ['R', 'W'], 'proctoring' => ['camera' => 'required', 'screen' => 'off']]);
+    $a = A::setProctorStatus($a, $mock, ['camera' => 'ok']);
+    $a = A::finishSection(A::startSection($a, $mock, 'R'), $mock, 'R');
+    $a = A::setProctorStatus($a, $mock, ['camera' => 'lost']);
+    $a = A::startSection($a, $mock, 'W');
+    eq('active', $a['stage_state']);
+    ok(!empty(Util::decode($a['meta_json'])['proctor']['camera_missing']));
+});
+
+test('Speaking: faqat kamera tekshiriladi (ekran majburiy bo\'lsa ham Speaking to\'xtab qolmaydi)', function (): void {
+    [$s, $mockS] = rec_setup(['sections' => ['S'], 'proctoring' => ['camera' => 'optional', 'screen' => 'required']]);
+    $s = A::speakingStart($s, $mockS);
+    eq('active', $s['stage_state']);
+
     [$a, $mock] = rec_setup(['sections' => ['S'], 'proctoring' => ['camera' => 'required', 'screen' => 'off']]);
     throws(fn () => A::speakingStart($a, $mock), 'camera_required');
     $a = A::setProctorStatus($a, $mock, ['camera' => 'ok', 'screen' => 'ok']);
@@ -236,14 +277,66 @@ test('bo\'laklar: tartib bilan qabul qilinadi, takror — tasdiq, oraliq tushib 
     throws(fn () => Recordings::acceptPiece($a, $mock, rec_in(['piece' => '3']), rec_file('D')), 'segment_closed');
 });
 
-test('bo\'laklar: yangi yozuv boshlansa, eski ochiq yozuv yopiladi (sahifa yangilangan)', function (): void {
+test('bo\'laklar: yangi yozuv boshlansa, jim turgan eski yozuv yopiladi, bo\'lak kelayotgani — yo\'q', function (): void {
     [$a, $mock] = rec_setup();
+    Util::$testNowMs = 1_800_000_000_000;
     Recordings::acceptPiece($a, $mock, rec_in(['seg' => 'OLDaaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head()));
+    // Ikkinchi oyna (masalan, eski oynaning navbati hali yuborilmoqda) — eski yozuv faol, yopilmaydi.
+    Util::$testNowMs += 10_000;
+    Recordings::acceptPiece($a, $mock, rec_in(['seg' => 'TWOaaaaaaaaaaaaaaaa1', 'section' => 'S']), rec_file(rec_mp4_head()));
+    eq('recording', Db::val("SELECT status FROM recordings WHERE seg_key = 'OLDaaaaaaaaaaaaaaaa1'"));
+    // Sahifa yangilangan: eski yozuv 45 soniyadan beri jim.
+    Util::$testNowMs += Recordings::IDLE_CLOSE_MS + 1000;
     Recordings::acceptPiece($a, $mock, rec_in(['seg' => 'NEWaaaaaaaaaaaaaaaa1', 'section' => 'R']), rec_file(rec_mp4_head()));
     $old = Db::one("SELECT * FROM recordings WHERE seg_key = 'OLDaaaaaaaaaaaaaaaa1'");
     eq('ready', $old['status']);
     eq(0, (int) $old['complete']);
     eq('recording', Db::val("SELECT status FROM recordings WHERE seg_key = 'NEWaaaaaaaaaaaaaaaa1'"));
+});
+
+test('bo\'laklar: uzilib yopilgan (hali yuborilmagan) yozuv internet tiklanganda davom ettiriladi', function (): void {
+    [$a, $mock] = rec_setup();
+    Util::$testNowMs = 1_800_000_000_000;
+    $p0 = rec_mp4_head();
+    Recordings::acceptPiece($a, $mock, rec_in(), rec_file($p0));
+    Util::$testNowMs += Recordings::STALE_ACTIVE_MS + 1000;
+    eq(1, Recordings::closeStale());
+    eq('ready', Db::val('SELECT status FROM recordings'));
+    Recordings::acceptPiece($a, $mock, rec_in(['piece' => '1']), rec_file('second'));
+    eq('recording', Db::val('SELECT status FROM recordings'), 'qayta ochildi');
+    Recordings::acceptPiece($a, $mock, rec_in(['piece' => '2', 'final' => '1']), rec_file('third'));
+    $row = Db::one('SELECT * FROM recordings');
+    eq('ready', $row['status']);
+    eq(1, (int) $row['complete']);
+    eq($p0 . 'second' . 'third', (string) file_get_contents(Recordings::path($row['file'])));
+    // Yuborilgandan keyin endi davom ettirilmaydi.
+    Db::exec("UPDATE recordings SET status = 'sent', sent_at = 1, complete = 0");
+    throws(fn () => Recordings::acceptPiece($a, $mock, rec_in(['piece' => '3']), rec_file('late')), 'segment_closed');
+});
+
+test('bo\'laklar: javobi yo\'qolgan oxirgi bo\'lak qayta yuborilsa, yozuv yopiladi', function (): void {
+    [$a, $mock] = rec_setup();
+    Recordings::acceptPiece($a, $mock, rec_in(), rec_file(rec_mp4_head()));
+    Recordings::acceptPiece($a, $mock, rec_in(['piece' => '1']), rec_file('tail'));
+    $r = Recordings::acceptPiece($a, $mock, rec_in(['piece' => '1', 'final' => '1']), rec_file('tail'));
+    ok(!empty($r['duplicate']));
+    $row = Db::one('SELECT * FROM recordings');
+    eq('ready', $row['status']);
+    eq(1, (int) $row['complete']);
+});
+
+test('yig\'ish takrorlansa ham bir xil (baza o\'zgarishi qaytarilgandan keyin) — "bo\'sh" deb o\'chirilmaydi', function (): void {
+    [$a, $mock] = rec_setup();
+    $p0 = rec_mp4_head();
+    Recordings::acceptPiece($a, $mock, rec_in(), rec_file($p0));
+    $before = Db::one('SELECT * FROM recordings');
+    Recordings::finalize($before, true);           // fayl yig'ildi, bo'laklar o'chdi
+    Db::exec("UPDATE recordings SET status = 'recording', complete = 0"); // tranzaksiya qaytarildi
+    Recordings::finalize(Db::one('SELECT * FROM recordings'), true);
+    $row = Db::one('SELECT * FROM recordings');
+    eq('ready', $row['status']);
+    eq(strlen($p0), (int) $row['size']);
+    eq($p0, (string) file_get_contents(Recordings::path($row['file'])));
 });
 
 test('bo\'laklar: noto\'g\'ri tur, bo\'lim, identifikator, o\'chiq nazorat va chegara', function (): void {
@@ -262,9 +355,38 @@ test('bo\'laklar: noto\'g\'ri tur, bo\'lim, identifikator, o\'chiq nazorat va ch
 
     [$b, $off] = rec_setup(['proctoring' => ['camera' => 'off', 'screen' => 'off']]);
     throws(fn () => Recordings::acceptPiece($b, $off, rec_in(), rec_file(rec_mp4_head())), 'rec_disabled');
+    // Video bo'lmagan ixtiyoriy baytlar (application/octet-stream) birinchi bo'lak sifatida qabul qilinmaydi.
+    throws(fn () => Recordings::acceptPiece($b, $mock, rec_in(['seg' => 'BINaaaaaaaaaaaaaaaa1']), rec_file(random_bytes(4000))), 'bad_type');
 });
 
-test('bo\'laklar: imtihon tugagach 20 daqiqa qabul qilinadi, keyin yo\'q', function (): void {
+test('chegaralar: urinish hajmi vaqtga mos, yozuvlar soni, serverdagi umumiy joy', function (): void {
+    [$a, $mock] = rec_setup();
+    Util::$testNowMs = ((int) $a['started_at']) * 1000; // urinish endi boshlandi: ~15 daqiqalik hajmgacha ruxsat
+    Recordings::acceptPiece($a, $mock, rec_in(), rec_file(rec_mp4_head()));
+    // Shu urinishning boshqa (oldingi) yozuvlari allaqachon katta hajmda.
+    Db::insert('recordings', [
+        'attempt_id' => $a['id'], 'seg_key' => 'BIGaaaaaaaaaaaaaaaa1', 'section' => 'L', 'content' => 'screen', 'mime' => 'video/mp4',
+        'file' => 'a' . $a['id'] . '/BIG.mp4', 'size' => 300 * 1048576, 'started_ms' => 0, 'last_ms' => 0, 'status' => 'ready', 'created_at' => 0,
+    ]);
+    throws(fn () => Recordings::acceptPiece($a, $mock, rec_in(['piece' => '1']), rec_file('x')), 'rec_quota');
+    Db::exec('DELETE FROM recordings');
+
+    [$b, $mock2] = rec_setup();
+    Util::$testNowMs = ((int) $b['started_at']) * 1000 + 3600_000;
+    Settings::set('rec_max_disk_mb', 1);
+    Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head()));
+    throws(fn () => Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKaaaaaaaaaaaaaaa1', 'piece' => '1']), rec_file(str_repeat('z', 1048576))), 'rec_disk_full');
+    Settings::set('rec_max_disk_mb', 0);
+
+    [$c, $mock3] = rec_setup();
+    Util::$testNowMs = ((int) $c['started_at']) * 1000 + 3600_000;
+    for ($i = 0; $i < Recordings::MAX_NEW_SEGMENTS_PER_MINUTE; $i++) {
+        Recordings::acceptPiece($c, $mock3, rec_in(['seg' => 'RATE' . str_pad((string) $i, 16, 'a')]), rec_file(rec_mp4_head()));
+    }
+    throws(fn () => Recordings::acceptPiece($c, $mock3, rec_in(['seg' => 'RATEzzzzzzzzzzzzzzzz']), rec_file(rec_mp4_head())), 'rec_quota');
+});
+
+test('bo\'laklar: imtihon tugagach bir necha soat qabul qilinadi (internet kech tiklansa), keyin yo\'q', function (): void {
     [$a, $mock] = rec_setup();
     Db::exec("UPDATE attempts SET status = 'completed', finished_at = ? WHERE id = ?", [time() - 60, $a['id']]);
     $a = A::lock((int) $a['id']);
@@ -275,17 +397,23 @@ test('bo\'laklar: imtihon tugagach 20 daqiqa qabul qilinadi, keyin yo\'q', funct
     throws(fn () => Recordings::acceptPiece($a, $mock, rec_in(['seg' => 'LATEaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head())), 'rec_closed');
 });
 
-test('uzilib qolgan yozuv (3 daqiqa bo\'lak kelmagan) yig\'iladi va navbatga qo\'yiladi', function (): void {
+test('uzilib qolgan yozuv: imtihon davom etsa 2 soat, tugagan bo\'lsa 30 daqiqadan keyin yig\'iladi', function (): void {
     [$a, $mock] = rec_setup();
     Util::$testNowMs = 1_800_000_000_000;
     Recordings::acceptPiece($a, $mock, rec_in(), rec_file(rec_mp4_head()));
-    eq(0, Recordings::closeStale());
-    Util::$testNowMs += Recordings::STALE_MS + 1000;
+    Util::$testNowMs += Recordings::STALE_DONE_MS + 1000;
+    eq(0, Recordings::closeStale(), 'imtihon davom etmoqda — brauzer internetni kutyapti');
+    Db::exec("UPDATE attempts SET status = 'completed', finished_at = ? WHERE id = ?", [time(), $a['id']]);
     eq(1, Recordings::closeStale());
     $row = Db::one('SELECT * FROM recordings');
     eq('ready', $row['status']);
     eq(0, (int) $row['complete']);
     ok(is_file(Recordings::path($row['file'])));
+
+    [$b, $mock2] = rec_setup();
+    Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'ACTVaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head()));
+    Util::$testNowMs += Recordings::STALE_ACTIVE_MS + 1000;
+    eq(1, Recordings::closeStale());
 });
 
 // ---------------------------------------------------------------------
@@ -377,6 +505,44 @@ test('navbat: Telegram\'ga ulanib bo\'lmasa — navbatda qoladi; 429 — kutadi;
     } finally {
         rec_reset_telegram();
     }
+});
+
+test('navbat: yuborish paytida yozuv davom ettirilsa — "yuborildi" deb belgilanmaydi va fayli o\'chmaydi', function (): void {
+    $calls = [];
+    rec_fake_telegram($calls, static function (): array {
+        // O'quvchining interneti tiklanib, yozuv aynan shu payt qayta ochildi.
+        Db::exec("UPDATE recordings SET status = 'recording'");
+        return [200, json_encode(['ok' => true, 'result' => ['message_id' => 9]])];
+    });
+    try {
+        [$a, $mock] = rec_setup();
+        $row = rec_ready($a, $mock, 'RACEaaaaaaaaaaaaaaa1', 'L');
+        Recordings::process(5, static fn () => null);
+        $row = Db::one('SELECT * FROM recordings WHERE id = ?', [$row['id']]);
+        eq('recording', $row['status']);
+        eq(0, (int) $row['file_deleted']);
+        ok(is_file(Recordings::path($row['file'])));
+    } finally {
+        rec_reset_telegram();
+    }
+});
+
+test('jadval topilmasa (eski zaxira nusxadan tiklangan) — belgi fayli o\'chadi, keyingi so\'rov jadvallarni yaratadi', function (): void {
+    $flag = Config::storagePath('schema.v' . App\Installer::SCHEMA_VERSION);
+    @mkdir(dirname($flag), 0775, true);
+    file_put_contents($flag, 'x');
+    Db::exec('DROP TABLE recordings');
+    try {
+        Db::val('SELECT COUNT(*) FROM recordings');
+        ok(false, 'xato kutilgan edi');
+    } catch (PDOException $e) {
+        ok(App\Installer::handleMissingTable($e));
+    }
+    ok(!is_file($flag));
+    App\Installer::ensureSchema();
+    eq(0, (int) Db::val('SELECT COUNT(*) FROM recordings'));
+    ok(is_file($flag));
+    ok(!App\Installer::handleMissingTable(new RuntimeException('boshqa xato')));
 });
 
 test('navbat: Telegram sozlanmagan — hech narsa yuborilmaydi, muddati o\'tgan yuborilmaganlar o\'chiriladi', function (): void {

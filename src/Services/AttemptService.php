@@ -311,7 +311,7 @@ final class AttemptService
 
     private static function activate(array $a, array $mock, string $stage, int $startMs): array
     {
-        $meta = self::meta($a);
+        $meta = self::markProctorGaps(self::meta($a), $mock, ['camera', 'screen']);
         $meta['sections'][$stage]['started_ms'] = $startMs;
         return self::persist($a, [
             'stage_state' => 'active',
@@ -403,27 +403,50 @@ final class AttemptService
         if ($a['stage_state'] === 'active') {
             return $a;
         }
-        self::assertProctoring($a, $mock);
+        // Majburiy kamera/ekran — imtihonning birinchi bo'limini o'quvchi o'zi boshlaganda tekshiriladi. Keyingi
+        // bo'limlarda kamera uzilsa, mijoz imtihonni yopib qo'yadi va bu qoidabuzarlik bo'ladi (tanaffusdagi avtomatik
+        // boshlanish to'xtab qolmasligi uchun bu yerda tekshirilmaydi).
+        if (self::isFirstStage($a, $section)) {
+            self::assertProctoring($a, $mock, ['camera', 'screen']);
+        }
         $lead = $section === 'L' ? self::LISTENING_LEAD_MS : 0;
         return self::activate($a, $mock, $section, Util::nowMs() + $lead);
     }
 
     /** Mockda kamera yoki ekran yozuvi majburiy bo'lsa, ular ishlamaguncha bo'lim boshlanmaydi. */
-    private static function assertProctoring(array $a, array $mock): void
+    private static function assertProctoring(array $a, array $mock, array $kinds): void
     {
         $required = MockService::settings($mock)['proctoring'];
         $status = self::meta($a)['proctor'] ?? [];
-        if ($required['camera'] === 'required' && ($status['camera'] ?? null) !== 'ok') {
+        if (in_array('camera', $kinds, true) && $required['camera'] === 'required' && ($status['camera'] ?? null) !== 'ok') {
             throw new HttpError(422, 'camera_required', "Bu imtihon kamera bilan o'tkaziladi. Kamerani yoqing va ruxsat bering.");
         }
-        if ($required['screen'] === 'required' && ($status['screen'] ?? null) !== 'ok') {
+        if (in_array('screen', $kinds, true) && $required['screen'] === 'required' && ($status['screen'] ?? null) !== 'ok') {
             throw new HttpError(422, 'screen_required', "Bu imtihonda ekran yozib olinadi. \"Butun ekran\"ni ulashing.");
         }
     }
 
     /**
-     * Mijozdagi kamera va ekran holatini saqlash (darvozadan o'tishda va o'zgarganda).
-     * Natijalar jadvalidagi "kamerasiz" belgisi shundan olinadi.
+     * "Kamerasiz"/"ekransiz" belgisi: nazorat yoqilgan, lekin bo'lim boshlanganda (yoki bo'lim davomida) qurilma
+     * ishlamagan bo'lsa. Darvozadagi oraliq holatlar (kamera yoqilib, ekran hali so'ralmagan) belgi qo'ymaydi.
+     */
+    private static function markProctorGaps(array $meta, array $mock, array $kinds): array
+    {
+        $settings = MockService::settings($mock)['proctoring'];
+        foreach ($kinds as $kind) {
+            if ($settings[$kind] === 'off') {
+                continue;
+            }
+            if (($meta['proctor'][$kind] ?? null) !== 'ok') {
+                $meta['proctor'][$kind . '_missing'] = true;
+            }
+        }
+        return $meta;
+    }
+
+    /**
+     * Mijozdagi kamera va ekran holatini saqlash (darvozadan o'tishda va o'zgarganda). Mijoz hali so'ralmagan
+     * qurilmani yubormaydi. Bo'lim faol paytdagi nosozlik "kamerasiz"/"ekransiz" belgisini qo'yadi.
      */
     public static function setProctorStatus(array $a, array $mock, array $input): array
     {
@@ -434,16 +457,17 @@ final class AttemptService
         $meta = self::meta($a);
         $old = (array) ($meta['proctor'] ?? []);
         $new = $old;
+        $active = $a['stage_state'] === 'active';
         foreach (['camera', 'screen'] as $kind) {
             $value = $input[$kind] ?? null;
             if ($settings[$kind] === 'off') {
                 $new[$kind] = 'off';
             } elseif (is_string($value) && in_array($value, self::PROCTOR_STATES, true)) {
                 $new[$kind] = $value;
-            }
-            // Imtihon davomida kamera kamida bir marta ishlamagan bo'lsa — belgi saqlanib qoladi.
-            if (($new[$kind] ?? 'off') !== 'ok' && ($new[$kind] ?? 'off') !== 'off') {
-                $new[$kind . '_missing'] = true;
+                // Speaking'da ekran yozilmaydi — u yerdagi ekran holati belgi qo'ymaydi.
+                if ($active && !in_array($value, ['ok', 'off'], true) && !($kind === 'screen' && $a['stage'] === 'S')) {
+                    $new[$kind . '_missing'] = true;
+                }
             }
         }
         if (array_key_exists('screens', $input) && is_numeric($input['screens'])) {
@@ -732,8 +756,9 @@ final class AttemptService
         if ($speaking['from'] !== null && $now < $speaking['from']) {
             throw new HttpError(403, 'speaking_not_yet', "Speaking " . date('d.m.Y H:i', $speaking['from']) . " dan boshlanadi.");
         }
-        self::assertProctoring($a, $mock);
-        $meta = self::meta($a);
+        // Speaking'da faqat kamera (va ovoz) yoziladi — ekran so'ralmaydi.
+        self::assertProctoring($a, $mock, ['camera']);
+        $meta = self::markProctorGaps(self::meta($a), $mock, ['camera']);
         $meta['speaking'] = ['started_ms' => Util::nowMs(), 'begun' => []];
         return self::persist($a, ['stage_state' => 'active', 'meta_json' => Util::json($meta)]);
     }
@@ -751,8 +776,16 @@ final class AttemptService
         $questions = self::speakingQuestions($mock);
         $index = count($begun);
         // Oldingi savol vaqti tugamaguncha keyingisi ochilmaydi (savollarni oldindan ko'rib bo'lmaydi).
-        // Administrator "javobni erta tugatish"ga ruxsat bergan bo'lsa — o'quvchi o'zi keyingisiga o'tadi.
-        if ($index > 0 && !MockService::settings($mock)['flow']['speaking_skip']) {
+        // Administrator "javobni erta tugatish"ga ruxsat bergan bo'lsa — oldingi savolga javob yuklangach o'quvchi
+        // o'zi keyingisiga o'tadi (javobsiz ketma-ket ochib, hamma savolni oldindan ko'rib bo'lmaydi).
+        $skipped = false;
+        if ($index > 0 && MockService::settings($mock)['flow']['speaking_skip']) {
+            $skipped = (bool) Db::val(
+                'SELECT COUNT(*) FROM speaking_answers WHERE attempt_id = ? AND q_no = ?',
+                [$a['id'], (int) $questions[$index - 1]['no']]
+            );
+        }
+        if ($index > 0 && !$skipped) {
             $previous = $questions[$index - 1];
             $readyAt = (int) $begun[(string) $previous['no']] + self::speakingWindowMs($previous)
                 - self::SPEAKING_OVERHEAD_MS - self::SPEAKING_NEXT_TOLERANCE_MS;

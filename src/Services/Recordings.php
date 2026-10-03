@@ -14,32 +14,46 @@ use finfo;
 /**
  * Video nazorat yozuvlari (ekran + kamera; Speaking'da kamera + ovoz).
  *
- * Brauzer har ~30 soniyada bitta bo'lak (piece) yuboradi; bo'laklar alohida fayllarga yoziladi
- * (qayta yuborilsa ustiga yoziladi — takrorlanmaydi), oxirgi bo'lak kelganda yoki yozuv uzilib qolsa
- * bitta faylga yig'iladi (segment, ~10 daqiqa, 49 MB gacha) va Telegram navbatiga qo'yiladi.
+ * Brauzer har ~15 soniyada bitta bo'lak (piece) yuboradi; bo'laklar alohida fayllarga yoziladi (qayta yuborilsa
+ * ustiga yoziladi — takrorlanmaydi). Oxirgi bo'lak kelganda yoki yozuv uzoq vaqt to'xtab qolsa, bo'laklar bitta
+ * faylga yig'iladi (segment, ~10 daqiqa, 49 MB gacha) va Telegram navbatiga qo'yiladi.
  *
  * Holatlar: recording → ready → sent (Telegram'ga ketdi) | failed (ko'p urinishdan keyin) | expired (o'chirildi).
+ * Uzilib qolgan (to'liq bo'lmagan) yozuv hali yuborilmagan bo'lsa, internet tiklanganda davom ettiriladi.
  * Yozma qism videolari Telegram'ga yuborilgach serverdan o'chiriladi; Speaking videolari serverda qoladi.
+ *
+ * Fayl amallari takrorlanganda ham to'g'ri natija beradi (baza tranzaksiyasi qaytarilsa yoki qayta urinilsa):
+ * yig'ish har safar bo'laklardan noldan quriladi, bo'laklar faqat yozuv to'liq tugagach o'chiriladi.
  */
 final class Recordings
 {
     public const PIECE_LIMIT = 12 * 1024 * 1024;
     /** Telegram bot 50 MB gacha fayl yuboradi. */
     public const SEGMENT_LIMIT = 49 * 1024 * 1024;
-    /** Shuncha vaqt yangi bo'lak kelmasa — yozuv tugagan hisoblanadi va yig'iladi. */
-    public const STALE_MS = 3 * 60_000;
-    /** Imtihon tugagandan keyin ham oxirgi bo'laklar shuncha vaqt qabul qilinadi. */
-    public const AFTER_FINISH_GRACE_SEC = 20 * 60;
+    /** Imtihon davom etayotgan bo'lsa: shuncha vaqt bo'lak kelmasa yozuv yopiladi (brauzer internet uzilganda kutadi). */
+    public const STALE_ACTIVE_MS = 2 * 3600_000;
+    /** Imtihon tugagan bo'lsa: oxirgi bo'lakdan shuncha vaqt o'tgach yozuv yopiladi. */
+    public const STALE_DONE_MS = 30 * 60_000;
+    /** Yangi yozuv boshlanganda shu urinishning boshqa ochiq yozuvlari faqat shuncha vaqt jim bo'lsa yopiladi. */
+    public const IDLE_CLOSE_MS = 45_000;
+    /** Imtihon tugagandan keyin ham bo'laklar shuncha vaqt qabul qilinadi (internet kech tiklansa). */
+    public const AFTER_FINISH_GRACE_SEC = 3 * 3600;
+    /** Bitta urinishda ko'pi bilan shuncha yozuv (sahifa ko'p yangilansa ham yetadi). */
+    public const MAX_SEGMENTS_PER_ATTEMPT = 300;
+    /** Bir daqiqada yangi yozuvlar soni (suiiste'molga qarshi). */
+    public const MAX_NEW_SEGMENTS_PER_MINUTE = 8;
+    /** Urinish boshidan beri o'tgan vaqtga nisbatan ruxsat etilgan hajm (kbit/s) — eng yuqori sifatdan ham ko'p. */
+    private const ATTEMPT_KBPS_CAP = 2600;
     public const CONTENTS = ['screen+camera', 'screen', 'camera'];
     /** Telegram: bitta kanalga daqiqasiga 20 tagacha xabar — har yuborish orasida kamida shuncha soniya. */
     public const SEND_SPACING_SEC = 3.2;
     public const MAX_TRIES = 12;
     private const MIMES = ['video/mp4' => 'mp4', 'video/webm' => 'webm'];
     /** Birinchi bo'lakning haqiqiy turi (finfo) — shulardan biri bo'lishi kerak. */
-    private const DETECTED = ['video/mp4', 'video/webm', 'video/x-matroska', 'audio/webm', 'audio/mp4', 'video/quicktime', 'application/octet-stream'];
+    private const DETECTED = ['video/mp4', 'video/webm', 'video/x-matroska', 'audio/webm', 'audio/mp4', 'video/quicktime'];
 
     // ---------------------------------------------------------------------
-    // Fayl yo'llari
+    // Fayl yo'llari va format
     // ---------------------------------------------------------------------
 
     public static function root(): string
@@ -86,9 +100,12 @@ final class Recordings
     // ---------------------------------------------------------------------
 
     /**
+     * Chaqiruvchi urinish qatorini qulflagan bo'lishi kerak (ExamController::withAttempt) — bitta urinishning
+     * so'rovlari navbat bilan bajariladi.
+     *
      * @param array $in seg, piece, section, content, audio, mime, final, duration_ms, width, height
      * @param array|null $file $_FILES['data']
-     * @return array{ok:bool, expected:int, done?:bool}
+     * @return array{ok:bool, expected:int, done?:bool, duplicate?:bool}
      */
     public static function acceptPiece(array $a, array $mock, array $in, ?array $file): array
     {
@@ -119,8 +136,11 @@ final class Recordings
         $durationMs = max(0, min(3_600_000, (int) ($in['duration_ms'] ?? 0)));
 
         [$tmp, $size] = self::checkUpload($file, $final);
+        $now = Util::nowMs();
 
-        $row = Db::one('SELECT * FROM recordings WHERE attempt_id = ? AND seg_key = ?' . Db::forUpdate(), [$a['id'], $seg]);
+        // Urinish qatori qulflangan — bu yerda qo'shimcha qulf (FOR UPDATE) shart emas (MySQL'da u boshqa
+        // urinishlar bilan "deadlock" berishi mumkin edi).
+        $row = Db::one('SELECT * FROM recordings WHERE attempt_id = ? AND seg_key = ?', [$a['id'], $seg]);
         if ($row === null) {
             if ($piece !== 0) {
                 throw new HttpError(409, 'piece_gap', "Yozuvning boshi yo'q.", ['expected' => 0]);
@@ -137,11 +157,12 @@ final class Recordings
             if (!in_array($detected, self::DETECTED, true)) {
                 throw new HttpError(415, 'bad_type', "Video formati qo'llab-quvvatlanmaydi ({$detected}).");
             }
-            // Yangi yozuv boshlandi — shu urinishning ochiq qolgan eski yozuvlari (sahifa yangilangan, uzilgan) yopiladi.
-            foreach (Db::all("SELECT * FROM recordings WHERE attempt_id = ? AND status = 'recording'", [$a['id']]) as $open) {
+            self::assertSegmentQuota($a, $now);
+            // Shu urinishning uzoq jim turgan ochiq yozuvlari (sahifa yangilangan, eski oyna) yopiladi.
+            // Hali bo'lak kelayotgan yozuvga tegilmaydi (masalan, eski oynaning navbati hali yuborilayotgan bo'lsa).
+            foreach (Db::all("SELECT * FROM recordings WHERE attempt_id = ? AND status = 'recording' AND last_ms < ?", [$a['id'], $now - self::IDLE_CLOSE_MS]) as $open) {
                 self::finalize($open);
             }
-            $now = Util::nowMs();
             $id = Db::insert('recordings', [
                 'attempt_id' => $a['id'],
                 'seg_key' => $seg,
@@ -166,17 +187,28 @@ final class Recordings
 
         $expected = (int) $row['pieces'];
         if ($piece < $expected) {
-            return ['ok' => true, 'expected' => $expected, 'duplicate' => true]; // Qayta yuborilgan — allaqachon bor.
-        }
-        if ($row['status'] !== 'recording') {
-            throw new HttpError(409, 'segment_closed', 'Bu yozuv yopilgan. Yangisi boshlanadi.');
+            // Qayta yuborilgan (javob yo'qolgan). Bu oxirgi bo'lak bo'lsa va yozuv hali yopilmagan bo'lsa — yopamiz.
+            if ($final && $piece === $expected - 1 && $row['status'] === 'recording') {
+                self::finalize($row, true);
+            }
+            return ['ok' => true, 'expected' => $expected, 'duplicate' => true];
         }
         if ($piece > $expected) {
             throw new HttpError(409, 'piece_gap', "Yozuv bo'laklari tartibi buzildi.", ['expected' => $expected]);
         }
+        if ($row['status'] !== 'recording') {
+            // Uzoq uzilishdan keyin yopilgan, lekin hali Telegram'ga ketmagan to'liq bo'lmagan yozuv — davom ettiriladi.
+            $reopenable = $row['status'] === 'ready' && !(int) $row['complete'] && !(int) $row['file_deleted'] && $row['sent_at'] === null;
+            if (!$reopenable) {
+                throw new HttpError(409, 'segment_closed', 'Bu yozuv yopilgan. Yangisi boshlanadi.');
+            }
+            Db::update('recordings', ['status' => 'recording'], 'id = ?', [$row['id']]);
+            $row['status'] = 'recording';
+        }
         if ((int) $row['size'] + $size > self::SEGMENT_LIMIT) {
             throw new HttpError(413, 'segment_full', 'Yozuv fayli chegaraga yetdi. Yangisi boshlanadi.');
         }
+        self::assertBytesQuota($a, $size, $now);
 
         if ($tmp !== null) {
             self::moveUpload($tmp, self::partPath($row, $piece));
@@ -184,7 +216,7 @@ final class Recordings
         $changes = [
             'pieces' => $expected + 1,
             'size' => (int) $row['size'] + $size,
-            'last_ms' => Util::nowMs(),
+            'last_ms' => $now,
             'duration_ms' => max((int) $row['duration_ms'], $durationMs),
         ];
         Db::update('recordings', $changes, 'id = ?', [$row['id']]);
@@ -198,6 +230,37 @@ final class Recordings
     {
         $v = (int) $value;
         return $v >= 16 && $v <= 8192 ? $v : null;
+    }
+
+    /** Yangi yozuvlar soni va tezligi (bitta urinish uchun). */
+    private static function assertSegmentQuota(array $a, int $now): void
+    {
+        $total = (int) Db::val('SELECT COUNT(*) FROM recordings WHERE attempt_id = ?', [$a['id']]);
+        $recent = (int) Db::val('SELECT COUNT(*) FROM recordings WHERE attempt_id = ? AND created_at >= ?', [$a['id'], intdiv($now, 1000) - 60]);
+        if ($total >= self::MAX_SEGMENTS_PER_ATTEMPT || $recent >= self::MAX_NEW_SEGMENTS_PER_MINUTE) {
+            throw new HttpError(403, 'rec_quota', 'Video yozuvlar soni chegaradan oshdi.');
+        }
+    }
+
+    /**
+     * Hajm cheklovlari: urinish boshidan beri o'tgan vaqtga mos hajm (bitta o'quvchi serverni to'ldira olmasin)
+     * va serverdagi barcha yozuvlar uchun umumiy chegara (Sozlamalar → rec_max_disk_mb).
+     */
+    private static function assertBytesQuota(array $a, int $adding, int $now): void
+    {
+        $elapsedSec = max(0, intdiv($now, 1000) - (int) $a['started_at']) + 900;
+        $allowed = (int) ($elapsedSec * self::ATTEMPT_KBPS_CAP * 1000 / 8);
+        $used = (int) Db::val('SELECT COALESCE(SUM(size), 0) FROM recordings WHERE attempt_id = ?', [$a['id']]);
+        if ($used + $adding > $allowed) {
+            throw new HttpError(403, 'rec_quota', 'Video yozuv hajmi chegaradan oshdi.');
+        }
+        $limitMb = Settings::int('rec_max_disk_mb');
+        if ($limitMb > 0) {
+            $disk = (int) Db::val('SELECT COALESCE(SUM(size), 0) FROM recordings WHERE file_deleted = 0');
+            if ($disk + $adding > $limitMb * 1048576) {
+                throw new HttpError(403, 'rec_disk_full', "Serverda video uchun ajratilgan joy to'ldi. Imtihon videosiz davom etadi.");
+            }
+        }
     }
 
     /** @return array{0:?string,1:int} vaqtinchalik fayl (bo'sh yakuniy bo'lak uchun null) va hajm */
@@ -235,8 +298,14 @@ final class Recordings
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Yig'ish
+    // ---------------------------------------------------------------------
+
     /**
-     * Bo'laklarni bitta faylga yig'ish va navbatga qo'yish. Uzilgan joydan keyingi bo'laklar tashlanadi.
+     * Bo'laklarni bitta faylga yig'ib, navbatga qo'yish. Takrorlansa ham bir xil natija: fayl har safar bo'laklardan
+     * qayta quriladi (vaqtinchalik fayl → rename). Bo'laklar faqat yozuv to'liq tugaganda ($complete) o'chiriladi —
+     * to'liq bo'lmagan yozuv keyin davom ettirilishi mumkin.
      */
     public static function finalize(array $row, bool $complete = false): void
     {
@@ -246,49 +315,89 @@ final class Recordings
             @mkdir($dir, 0775, true);
         }
         $pieces = (int) $row['pieces'];
-        $written = 0;
-        $out = @fopen($dest . '.tmp', 'wb');
-        if ($out !== false) {
-            for ($i = 0; $i < $pieces; $i++) {
-                $part = self::partPath($row, $i);
-                $in = is_file($part) ? @fopen($part, 'rb') : false;
-                if ($in === false) {
-                    break;
-                }
-                $written += (int) stream_copy_to_stream($in, $out);
-                fclose($in);
-            }
-            fclose($out);
-        }
+        $parts = [];
         for ($i = 0; $i < $pieces; $i++) {
-            @unlink(self::partPath($row, $i));
+            $part = self::partPath($row, $i);
+            if (!is_file($part)) {
+                break;
+            }
+            $parts[] = $part;
         }
-        if ($written > 0 && @rename($dest . '.tmp', $dest)) {
-            Db::update('recordings', [
-                'status' => 'ready',
-                'complete' => $complete ? 1 : 0,
-                'size' => $written,
-                'tg_next_at' => 0,
-            ], 'id = ?', [$row['id']]);
+        $size = null;
+        $expected = (int) $row['size'];
+        if (is_file($dest) && (int) filesize($dest) === $expected && count($parts) < $pieces) {
+            // Avvalgi yig'ish muvaffaqiyatli bo'lgan, bo'laklar o'chirilgan (baza o'zgarishi qaytarilgandan keyin).
+            $size = $expected;
+        } elseif ($parts !== []) {
+            $out = @fopen($dest . '.tmp', 'wb');
+            if ($out !== false) {
+                $written = 0;
+                foreach ($parts as $part) {
+                    $in = @fopen($part, 'rb');
+                    if ($in === false) {
+                        break;
+                    }
+                    $written += (int) stream_copy_to_stream($in, $out);
+                    fclose($in);
+                }
+                fclose($out);
+                if ($written > 0 && @rename($dest . '.tmp', $dest)) {
+                    $size = $written;
+                } else {
+                    @unlink($dest . '.tmp');
+                }
+            }
+        } elseif (is_file($dest) && filesize($dest) > 0) {
+            $size = (int) filesize($dest);
+        }
+
+        if ($size === null) {
+            Db::update('recordings', ['status' => 'expired', 'file_deleted' => 1, 'size' => 0, 'tg_error' => "Yozuv bo'sh"], 'id = ?', [$row['id']]);
             return;
         }
-        @unlink($dest . '.tmp');
-        Db::update('recordings', ['status' => 'expired', 'file_deleted' => 1, 'size' => 0, 'tg_error' => "Yozuv bo'sh"], 'id = ?', [$row['id']]);
+        Db::update('recordings', [
+            'status' => 'ready',
+            'complete' => $complete ? 1 : (int) ($row['complete'] ?? 0),
+            'size' => $size,
+            'tg_next_at' => 0,
+        ], 'id = ?', [$row['id']]);
+        if ($complete) {
+            self::deleteParts($row);
+        }
+    }
+
+    private static function deleteParts(array $row): void
+    {
+        foreach (glob(self::path('a' . (int) $row['attempt_id']) . '/' . $row['seg_key'] . '.*.part') ?: [] as $part) {
+            @unlink($part);
+        }
     }
 
     /** Uzoq vaqt bo'lak kelmagan yozuvlarni yopish (sahifa yopilgan, internet uzilgan). */
     public static function closeStale(): int
     {
-        $rows = Db::all("SELECT * FROM recordings WHERE status = 'recording' AND last_ms < ?", [Util::nowMs() - self::STALE_MS]);
-        foreach ($rows as $row) {
-            Db::tx(static function () use ($row): void {
-                $fresh = Db::one("SELECT * FROM recordings WHERE id = ? AND status = 'recording'" . Db::forUpdate(), [$row['id']]);
-                if ($fresh !== null) {
-                    self::finalize($fresh);
+        $now = Util::nowMs();
+        $activeCutoff = $now - self::STALE_ACTIVE_MS;
+        $doneCutoff = $now - self::STALE_DONE_MS;
+        $rows = Db::all(
+            "SELECT r.id, r.last_ms FROM recordings r JOIN attempts a ON a.id = r.attempt_id
+             WHERE r.status = 'recording'
+               AND ((a.status = 'in_progress' AND r.last_ms < ?) OR (a.status <> 'in_progress' AND r.last_ms < ?))",
+            [$activeCutoff, $doneCutoff]
+        );
+        $closed = 0;
+        foreach ($rows as $stale) {
+            $closed += (int) Db::tx(static function () use ($stale): bool {
+                // Qulf ostida qayta tekshirish: shu orada yangi bo'lak kelgan bo'lsa — tegilmaydi.
+                $row = Db::one("SELECT * FROM recordings WHERE id = ? AND status = 'recording' AND last_ms = ?" . Db::forUpdate(), [$stale['id'], $stale['last_ms']]);
+                if ($row === null) {
+                    return false;
                 }
+                self::finalize($row);
+                return true;
             });
         }
-        return count($rows);
+        return $closed;
     }
 
     // ---------------------------------------------------------------------
@@ -300,6 +409,11 @@ final class Recordings
     {
         $count = 0;
         $now = time();
+        // Telegram'ga yuborilgan, lekin fayli o'chmay qolgan yozma qism videolari (masalan, server to'xtab qolgan).
+        foreach (Db::all("SELECT * FROM recordings WHERE file_deleted = 0 AND section <> 'S' AND status = 'sent'") as $row) {
+            self::deleteFile($row, 'sent');
+            $count++;
+        }
         $keep = Settings::int('rec_keep_days');
         if ($keep > 0) {
             $rows = Db::all(
@@ -328,6 +442,7 @@ final class Recordings
     private static function deleteFile(array $row, string $status): void
     {
         @unlink(self::path((string) $row['file']));
+        self::deleteParts($row);
         Db::update('recordings', ['file_deleted' => 1, 'status' => $status], 'id = ?', [$row['id']]);
     }
 
@@ -475,24 +590,28 @@ final class Recordings
                 // Ulanish xatosi (Telegram bloklangan, internet yo'q) — navbatda qoladi; Telegram rad etsa — ko'p
                 // urinishdan keyin "xato" bo'ladi (admin qayta yuborishi mumkin).
                 'status' => !$network && $retryAfter === 0 && $tries >= self::MAX_TRIES ? 'failed' : 'ready',
-            ], 'id = ?', [$row['id']]);
+            ], "id = ? AND status = 'ready'", [$row['id']]);
             self::saveStatus(['last_error' => mb_substr($e->getMessage(), 0, 300), 'last_error_at' => time()]
                 + ($retryAfter > 0 ? ['paused_until' => time() + $retryAfter] : []));
             return $retryAfter > 0 || $network ? 'pause' : 'retry';
         }
-        $changes = [
+        // Avval baza (keyin fayl): yuborish paytida yozuv davom ettirilgan bo'lsa (o'quvchining interneti tiklangan),
+        // holat o'zgarmaydi — u to'liq tugagach yana yuboriladi.
+        $marked = Db::update('recordings', [
             'status' => 'sent',
             'tg_chat' => $chat,
             'tg_message_id' => $messageId,
             'tg_error' => null,
             'sent_at' => time(),
-        ];
-        // Yozma qism videolari faqat Telegram'da qoladi; Speaking videolari serverda ham saqlanadi.
-        if ($row['section'] !== 'S') {
-            @unlink($path);
-            $changes['file_deleted'] = 1;
+        ], "id = ? AND status = 'ready'", [$row['id']]);
+        if ($marked > 0) {
+            // Yozma qism videolari faqat Telegram'da qoladi; Speaking videolari serverda ham saqlanadi.
+            self::deleteParts($row);
+            if ($row['section'] !== 'S') {
+                @unlink($path);
+                Db::update('recordings', ['file_deleted' => 1], 'id = ?', [$row['id']]);
+            }
         }
-        Db::update('recordings', $changes, 'id = ?', [$row['id']]);
         $status = self::queueStatus();
         self::saveStatus(['last_sent_at' => time(), 'sent_total' => (int) ($status['sent_total'] ?? 0) + 1]);
         return 'sent';
@@ -519,10 +638,10 @@ final class Recordings
         $proctor = (array) (Util::decode($info['meta_json'] ?? '{}')['proctor'] ?? []);
         $flags = [];
         if (!empty($proctor['camera_missing'])) {
-            $flags[] = "kamera ishlamagan";
+            $flags[] = 'kamera ishlamagan payt bor';
         }
         if (!empty($proctor['screen_missing'])) {
-            $flags[] = "ekran ulashilmagan";
+            $flags[] = 'ekran ulashilmagan payt bor';
         }
         if ((int) ($proctor['screens'] ?? 1) > 1) {
             $flags[] = $proctor['screens'] . ' ta monitor';
@@ -532,8 +651,8 @@ final class Recordings
             '👤 ' . $info['full_name'] . ' · kod ' . $info['anon_code'] . ' · ' . $info['attempt_no'] . '-urinish',
             '📘 ' . ($names[$row['section']] ?? $row['section']) . ' · ' . $index . '-qism · '
                 . date('d.m.Y H:i', $from) . '–' . date('H:i', $to)
-                . ($row['complete'] ? '' : " · to'liq emas"),
-            '🖥 ' . ($contents[$row['content']] ?? $row['content']) . ($row['has_audio'] ? ' + ovoz' : ''),
+                . ((int) $row['complete'] ? '' : " · to'liq emas"),
+            '🖥 ' . ($contents[$row['content']] ?? $row['content']) . ((int) $row['has_audio'] ? ' + ovoz' : ''),
         ];
         if ($flags !== []) {
             $lines[] = '⚠️ ' . implode(', ', $flags);
@@ -558,6 +677,7 @@ final class Recordings
             $row['playable'] = !(int) $row['file_deleted'] && $row['status'] !== 'recording';
             unset($row['tg_chat']);
         }
+        unset($row);
         return $rows;
     }
 
@@ -586,6 +706,7 @@ final class Recordings
             ],
             'counts' => $counts,
             'disk_bytes' => $disk,
+            'disk_limit_bytes' => Settings::int('rec_max_disk_mb') * 1048576,
             'queue' => self::queueStatus(),
             'now' => time(),
         ];

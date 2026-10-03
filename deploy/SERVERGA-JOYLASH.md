@@ -258,18 +258,22 @@ ishlaydi — standart qiymatlar olinadi (Telegram'siz videolar faqat serverda sa
 
 **Nima yoziladi.** Listening, Reading va Writing davomida — o'quvchi ekrani va kamerasi bitta videoda (ekran 1280×720
 gacha, kamera pastki o'ng burchakda, ustida nomzod kodi, bo'lim va vaqt). Speaking'da — kamera va ovoz. Video
-10 daqiqalik fayllarga bo'linadi (sozlanadi) va har 30 soniyada bo'lak-bo'lak serverga yuboriladi: internet uzilsa
-brauzer kutadi, sahifa yangilansa yozuv yangi faylda davom etadi. Har mock uchun alohida yoqiladi
+10 daqiqalik fayllarga bo'linadi (sozlanadi) va har 15 soniyada bo'lak-bo'lak serverga yuboriladi: internet uzilsa
+brauzer kutadi, sahifa yangilansa yozuv yangi faylda davom etadi (oxirgi ~15 soniya yo'qolishi mumkin). Har mock uchun alohida yoqiladi
 (**Mocklar → mock → Umumiy → Video nazorat**): kamera va ekran — "O'chiq", "Bo'lsa yoziladi" (rad etsa yoki kamera yo'q
-bo'lsa imtihon davom etadi, natijalar jadvalida "kamerasiz"/"ekransiz" belgisi turadi) yoki "Majburiy" (ishlamasa
-imtihon boshlanmaydi; ekran ulashishni to'xtatish va kamerani uzish qoidabuzarlik hisoblanadi). Yangi mocklarda
+bo'lsa imtihon davom etadi, natijalar jadvalida "kamerasiz"/"ekransiz" belgisi turadi — bo'lim boshlanganda yoki bo'lim
+davomida qurilma ishlamagan bo'lsa) yoki "Majburiy" (ishlamasa imtihon boshlanmaydi; ekran ulashishni to'xtatish va
+kamerani uzish qoidabuzarlik hisoblanadi). Speaking'da faqat kamera so'raladi. Yangi mocklarda
 standart — "Bo'lsa yoziladi". Ekranni ulashish to'xtatilsa — ogohlantirish va "Ekranni qayta ulashish" tugmasi chiqadi.
 
 **Qayerga ketadi.** Server videolarni navbat bilan Telegram kanalga yuboradi (yozuv ostida: mock, o'quvchi, kod,
 bo'lim, vaqt, belgilar). **Yozma qism videolari kanalga yuborilgach serverdan o'chiriladi; Speaking videolari serverda
 ham qoladi.** Admin panelda (urinish sahifasi → "Video yozuvlar") har fayl holati, "Ko'rish", "Yuklab olish" va kanal
 xabariga "Telegram" havolasi bor. Telegram sozlanmagan yoki ishlamasa, videolar serverda turadi va
-`rec_keep_days` kundan (standart 30) keyin o'chiriladi.
+`rec_keep_days` kundan (standart 30) keyin o'chiriladi. Hosting diski to'lib sayt ishdan chiqmasligi uchun videolarga
+ajratilgan joy cheklangan (**"Video uchun joy"**, standart 10 240 MB): to'lsa, yangi yozuv qabul qilinmaydi va imtihon
+videosiz davom etadi (admin panelda ogohlantirish chiqadi). Hosting tarifingizdagi disk hajmiga qarab o'zgartiring.
+Internet uzilsa brauzer videoni xotirada saqlab turadi (taxminan 1 soatgacha) va aloqa tiklangach yuboradi.
 
 **Hajm.** 250 kbit/s (standart) ≈ 1.9 MB/daqiqa: yozma qism (~2 soat 45 daqiqa) ≈ 300 MB, Speaking ≈ 20–30 MB bir
 o'quvchiga. 100 o'quvchi bir vaqtda ≈ 25 Mbit/s serverga kirish va Telegram'ga chiqish. Telegram cheklovlari: bitta fayl

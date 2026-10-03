@@ -277,6 +277,7 @@ function recordingsCard(settings) {
   const segment = num('rec_segment_min', 2, 20);
   const keep = num('rec_keep_days', 0, 3650);
   const keepS = num('rec_speaking_keep_days', 0, 3650);
+  const diskMb = num('rec_max_disk_mb', 0, 10000000);
   let busy = false;
 
   const saveRec = async () => {
@@ -284,6 +285,7 @@ function recordingsCard(settings) {
       const res = await put('admin/settings', {
         rec_video_kbps: Number(kbps.value), rec_segment_min: Number(segment.value),
         rec_keep_days: Number(keep.value), rec_speaking_keep_days: Number(keepS.value),
+        rec_max_disk_mb: Number(diskMb.value),
       });
       Object.assign(settings, res.settings);
       toast('Saqlandi.', 'success');
@@ -339,8 +341,12 @@ function recordingsCard(settings) {
         h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Navbatda' }), h('span', { class: 'stat-value', text: String(waiting) }), h('span', { class: 'stat-hint', text: count('recording') ? `${count('recording')} tasi yozilmoqda` : '' })),
         h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Yuborilgan' }), h('span', { class: 'stat-value', text: String(count('sent')) })),
         h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Xato' }), h('span', { class: 'stat-value', text: String(count('failed')) })),
-        h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Serverda' }), h('span', { class: 'stat-value small-value', text: MB(d.disk_bytes) }))
+        h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Serverda' }), h('span', { class: 'stat-value small-value', text: MB(d.disk_bytes) }),
+          h('span', { class: 'stat-hint', text: d.disk_limit_bytes ? `chegara ${MB(d.disk_limit_bytes)}` : 'chegarasiz' }))
       ),
+      d.disk_limit_bytes && d.disk_bytes > d.disk_limit_bytes * 0.85
+        ? h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', { text: "Video uchun ajratilgan joy deyarli to'ldi. To'lsa, yangi yozuvlar qabul qilinmaydi (imtihon videosiz davom etadi). Telegram'ni sozlang yoki chegarani oshiring." }))
+        : null,
       cronOld ? h('div', null,
         h('p', { class: 'small', text: "Hosting panelidagi cron (ispmanager → «Планировщик CRON») ga har daqiqada ishlaydigan buyruq qo'shing:" }),
         h('div', { class: 'tg-cron', text: '/opt/php/8.3/bin/php /var/www/FOYDALANUVCHI/data/www/SAYT/bin/recordings.php' }),
@@ -357,7 +363,8 @@ function recordingsCard(settings) {
         field('Video sifati (kbit/s)', kbps, '250 ≈ 1.9 MB/daqiqa'),
         field('Bitta fayl (daqiqa)', segment, 'Telegram: 50 MB gacha'),
         field("Yuborilmaganlarni o'chirish (kun)", keep, '0 — o\'chirilmaydi'),
-        field('Speaking videolari (kun)', keepS, '0 — doim saqlanadi')
+        field('Speaking videolari (kun)', keepS, '0 — doim saqlanadi'),
+        field('Video uchun joy (MB)', diskMb, "To'lsa yozish to'xtaydi; 0 — chegarasiz")
       ),
       h('div', { class: 'actions' }, h('button', { class: 'btn btn-primary', type: 'button', onclick: saveRec }, 'Saqlash'))
     ));

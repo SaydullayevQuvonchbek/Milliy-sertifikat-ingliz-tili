@@ -23,6 +23,23 @@ final class Installer
         @file_put_contents($flag, date('c') . "\n");
     }
 
+    /**
+     * Jadval topilmasa (masalan, baza eski zaxira nusxadan tiklangan, belgi fayli esa qolgan): belgi o'chiriladi —
+     * keyingi so'rov jadvallarni qayta yaratadi.
+     */
+    public static function handleMissingTable(\Throwable $e): bool
+    {
+        if (!$e instanceof \PDOException) {
+            return false;
+        }
+        $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+        if ($state !== '42S02' && !str_contains($e->getMessage(), 'no such table')) {
+            return false;
+        }
+        @unlink(Config::storagePath('schema.v' . self::SCHEMA_VERSION));
+        return true;
+    }
+
     public static function install(): void
     {
         $file = APP_ROOT . '/database/schema.' . (Db::driver() === 'mysql' ? 'mysql' : 'sqlite') . '.sql';

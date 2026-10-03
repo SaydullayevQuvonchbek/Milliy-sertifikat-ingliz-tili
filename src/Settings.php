@@ -20,6 +20,9 @@ final class Settings
         'rec_keep_days' => 30,
         // Speaking videolari serverda necha kun saqlanadi (0 — doim).
         'rec_speaking_keep_days' => 0,
+        // Serverdagi barcha video yozuvlar uchun joy (MB, 0 — cheklanmagan). To'lsa, yangi yozuv qabul qilinmaydi
+        // (imtihon videosiz davom etadi) — hosting diski to'lib sayt ishdan chiqmasligi uchun.
+        'rec_max_disk_mb' => 10240,
     ];
 
     /** @var array<string, array{0:int,1:int}> Sonli sozlamalarning chegaralari. */
@@ -28,6 +31,7 @@ final class Settings
         'rec_segment_min' => [2, 20],
         'rec_keep_days' => [0, 3650],
         'rec_speaking_keep_days' => [0, 3650],
+        'rec_max_disk_mb' => [0, 10_000_000],
     ];
 
     public static function int(string $name): int

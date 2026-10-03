@@ -350,6 +350,8 @@ export class SpeakingRunner {
       });
     }
     for (;;) {
+      // "Javobni erta tugatish" yoqilgan bo'lsa: server keyingi savolni oldingi javob yuklangach darhol ochadi.
+      if (this.o.skip) await this.waitUploads();
       const res = await this.call('speaking/next');
       if (res.done) break;
       const q = res.question;

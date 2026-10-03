@@ -62,6 +62,7 @@ try {
     send_json(['error' => ['code' => $e->errorCode, 'message' => $e->getMessage()] + $e->extra], $e->status);
 } catch (Throwable $e) {
     error_log('[mock] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    App\Installer::handleMissingTable($e);
     $payload = ['error' => ['code' => 'server_error', 'message' => "Serverda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."]];
     if (Config::get('debug')) {
         $payload['error']['debug'] = $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine();

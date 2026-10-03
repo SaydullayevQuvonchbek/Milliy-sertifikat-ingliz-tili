@@ -14,10 +14,12 @@ import { SECTION, T } from '../../lib/uz.js';
 
 /** Bo'lak uzunligi: sahifa yangilansa ko'pi bilan shuncha video yo'qoladi. */
 const PIECE_MS = 15000;
+/** Imtihon davomida ekranni qayta ulashish oynasi uchun beriladigan vaqt (shundan uzoq tursa — oynadan chiqish). */
+const PICKER_GRACE_MS = 20000;
 const MAX_SEGMENT_BYTES = 40 * 1024 * 1024;
 const MAX_QUEUE_BYTES = 160 * 1024 * 1024;
 /** Server rad etsa, yozuvni butunlay to'xtatadigan xatolar (imtihon yopilgan, boshqa oynaga o'tgan va h.k.). */
-const FATAL_CODES = new Set(['rec_closed', 'rec_disabled', 'taken_over', 'finished', 'terminated', 'not_found', 'unauthorized', 'forbidden']);
+const FATAL_CODES = new Set(['rec_closed', 'rec_disabled', 'rec_quota', 'rec_disk_full', 'taken_over', 'finished', 'terminated', 'not_found', 'unauthorized', 'forbidden']);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -152,10 +154,12 @@ export class Proctor {
       return;
     }
     // Imtihon davomida qayta ulashilsa: tanlash oynasi imtihon oynasidan fokusni oladi — bu qoidabuzarlik emas.
-    // Oyna yopilgach kuzatuv qisqa vaqtdan keyin tiklanadi va to'liq ekran holati qayta tekshiriladi.
+    // Oyna yopilgach kuzatuv qisqa vaqtdan keyin tiklanadi va to'liq ekran holati qayta tekshiriladi. Tanlash oynasi
+    // uzoq ochiq tursa (o'quvchi shu orada boshqa dasturga o'tishi mumkin) — bu oynadan chiqish deb yoziladi.
     const lock = this.o.lock;
     const locked = Boolean(lock && lock.enabled);
-    if (locked) lock.suppress(120000);
+    const pickerOpened = Date.now();
+    if (locked) lock.suppress(PICKER_GRACE_MS);
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: 'monitor', frameRate: { ideal: 5, max: 10 }, width: { max: 1920 }, height: { max: 1080 } },
@@ -187,17 +191,25 @@ export class Proctor {
       this.report('screen_denied', name);
     }
     if (locked) {
+      const away = Date.now() - pickerOpened;
+      if (away > PICKER_GRACE_MS) {
+        this.report('focus_lost', `Ekranni ulashish oynasi ${Math.round(away / 1000)} soniya ochiq turdi`, true);
+      }
       lock.suppress(1500);
       setTimeout(() => lock.checkReturn(), 1600);
     }
     this.sourcesChanged();
   }
 
+  /** Server uchun holat: hali so'ralmagan qurilma yuborilmaydi (darvozada oraliq holat "yo'q" deb belgilanmasin). */
   statusPayload() {
-    const norm = (k) => (k.mode === 'off' ? 'off' : k.status === 'idle' ? 'none' : k.status === 'unsupported' ? 'unsupported' : k.status);
-    const out = { camera: norm(this.camera), screens: this.screens };
-    // Speaking'da ekran so'ralmaydi — serverdagi yozma qism holati o'zgarmaydi.
-    if (!this.speaking) out.screen = norm(this.screen);
+    const out = { screens: this.screens };
+    for (const [name, kind] of [['camera', this.camera], ['screen', this.screen]]) {
+      // Speaking'da ekran so'ralmaydi — serverdagi yozma qism holati o'zgarmaydi.
+      if (name === 'screen' && this.speaking) continue;
+      if (kind.mode === 'off') out[name] = 'off';
+      else if (kind.status !== 'idle') out[name] = kind.status;
+    }
     return out;
   }
 
@@ -474,6 +486,21 @@ export class Proctor {
   onStop(seg) {
     if (seg.ended) return;
     seg.ended = true;
+    // Yozuv o'zi to'xtab qolgan bo'lsa (kodlovchi xatosi, manba uzilgan) — qisqa tanaffusdan keyin yangisi boshlanadi.
+    if (seg === this.seg && !this.stopped) {
+      this.seg = null;
+      clearTimeout(this.segTimer);
+      const now = Date.now();
+      this.restarts = (this.restarts || []).filter((t) => now - t < 60000).concat(now);
+      if (this.restarts.length <= 5) {
+        setTimeout(() => {
+          if (!this.seg && !this.stopped) this.rotate();
+        }, 1000);
+      } else {
+        this.report('rec_error', "Video yozuv qayta-qayta to'xtadi — yozish to'xtatildi");
+        this.renderBadge();
+      }
+    }
     if (seg.dropped) return;
     // Oxirgi bo'lak hali yuborilmagan bo'lsa — "yakuniy" deb belgilanadi; aks holda bo'sh yakunlash belgisi.
     for (let i = this.queue.length - 1; i >= 0; i -= 1) {
@@ -558,6 +585,8 @@ export class Proctor {
             continue;
           }
           if (FATAL_CODES.has(err.code) || err.status === 401 || err.status === 403) {
+            // Yozuv endi qabul qilinmaydi (imtihon yopilgan, joy to'lgan, chegara va h.k.) — imtihon videosiz davom etadi.
+            if (err.code !== 'taken_over' && err.code !== 'rec_closed') this.report('rec_error', `${err.code}: ${err.message}`.slice(0, 200));
             this.closed = true;
             this.queue = [];
             this.queueBytes = 0;
