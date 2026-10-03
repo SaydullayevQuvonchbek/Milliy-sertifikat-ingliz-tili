@@ -158,6 +158,7 @@ final class Recordings
                 throw new HttpError(415, 'bad_type', "Video formati qo'llab-quvvatlanmaydi ({$detected}).");
             }
             self::assertSegmentQuota($a, $now);
+            self::assertDiskRoom();
             // Shu urinishning uzoq jim turgan ochiq yozuvlari (sahifa yangilangan, eski oyna) yopiladi.
             // Hali bo'lak kelayotgan yozuvga tegilmaydi (masalan, eski oynaning navbati hali yuborilayotgan bo'lsa).
             foreach (Db::all("SELECT * FROM recordings WHERE attempt_id = ? AND status = 'recording' AND last_ms < ?", [$a['id'], $now - self::IDLE_CLOSE_MS]) as $open) {
@@ -202,7 +203,11 @@ final class Recordings
             if (!$reopenable) {
                 throw new HttpError(409, 'segment_closed', 'Bu yozuv yopilgan. Yangisi boshlanadi.');
             }
-            Db::update('recordings', ['status' => 'recording'], 'id = ?', [$row['id']]);
+            // Shart bilan: navbat (cron) shu orada uni yuborib qo'ygan bo'lsa — davom ettirilmaydi.
+            $reopened = Db::update('recordings', ['status' => 'recording'], "id = ? AND status = 'ready' AND sent_at IS NULL AND file_deleted = 0", [$row['id']]);
+            if ($reopened < 1) {
+                throw new HttpError(409, 'segment_closed', 'Bu yozuv yopilgan. Yangisi boshlanadi.');
+            }
             $row['status'] = 'recording';
         }
         if ((int) $row['size'] + $size > self::SEGMENT_LIMIT) {
@@ -242,10 +247,7 @@ final class Recordings
         }
     }
 
-    /**
-     * Hajm cheklovlari: urinish boshidan beri o'tgan vaqtga mos hajm (bitta o'quvchi serverni to'ldira olmasin)
-     * va serverdagi barcha yozuvlar uchun umumiy chegara (Sozlamalar → rec_max_disk_mb).
-     */
+    /** Urinish boshidan beri o'tgan vaqtga mos hajm — bitta o'quvchi serverni to'ldira olmasin. */
     private static function assertBytesQuota(array $a, int $adding, int $now): void
     {
         $elapsedSec = max(0, intdiv($now, 1000) - (int) $a['started_at']) + 900;
@@ -254,13 +256,25 @@ final class Recordings
         if ($used + $adding > $allowed) {
             throw new HttpError(403, 'rec_quota', 'Video yozuv hajmi chegaradan oshdi.');
         }
+    }
+
+    /**
+     * Telegram'ni kutayotgan videolar uchun joy (Sozlamalar → rec_max_disk_mb): Telegram ishlamasa ham hosting diski
+     * to'lib qolmasin. Faqat yangi fayl boshlanganda tekshiriladi (boshlangan fayl 49 MB gacha tugatiladi).
+     * Telegram'ga yuborilgan Speaking videolari hisoblanmaydi — ularning saqlanishini rec_speaking_keep_days boshqaradi.
+     */
+    private static function assertDiskRoom(): void
+    {
         $limitMb = Settings::int('rec_max_disk_mb');
-        if ($limitMb > 0) {
-            $disk = (int) Db::val('SELECT COALESCE(SUM(size), 0) FROM recordings WHERE file_deleted = 0');
-            if ($disk + $adding > $limitMb * 1048576) {
-                throw new HttpError(403, 'rec_disk_full', "Serverda video uchun ajratilgan joy to'ldi. Imtihon videosiz davom etadi.");
-            }
+        if ($limitMb > 0 && self::backlogBytes() + self::SEGMENT_LIMIT > $limitMb * 1048576) {
+            throw new HttpError(403, 'rec_disk_full', "Serverda video uchun ajratilgan joy to'ldi. Telegram'ga yuborilgach bo'shaydi.");
         }
+    }
+
+    /** Serverda turgan, hali Telegram'ga yuborilmagan (yoki yozma qism — o'chirilmagan) videolar hajmi. */
+    public static function backlogBytes(): int
+    {
+        return (int) Db::val("SELECT COALESCE(SUM(size), 0) FROM recordings WHERE file_deleted = 0 AND status <> 'sent'");
     }
 
     /** @return array{0:?string,1:int} vaqtinchalik fayl (bo'sh yakuniy bo'lak uchun null) va hajm */
@@ -371,6 +385,23 @@ final class Recordings
         foreach (glob(self::path('a' . (int) $row['attempt_id']) . '/' . $row['seg_key'] . '.*.part') ?: [] as $part) {
             @unlink($part);
         }
+    }
+
+    /**
+     * Mijoz aytgan yozuvni yopish: oldingi sahifa yopilgan, uning oxirgi bo'lagi kelmaydi. Keyin bo'lak kelib qolsa
+     * (yozuv hali Telegram'ga ketmagan bo'lsa), yozuv davom ettiriladi.
+     */
+    public static function closeSegment(array $a, string $seg): bool
+    {
+        if (!preg_match('/^[A-Za-z0-9]{12,32}$/', $seg)) {
+            return false;
+        }
+        $row = Db::one("SELECT * FROM recordings WHERE attempt_id = ? AND seg_key = ? AND status = 'recording'", [$a['id'], $seg]);
+        if ($row === null) {
+            return false;
+        }
+        self::finalize($row);
+        return true;
     }
 
     /** Uzoq vaqt bo'lak kelmagan yozuvlarni yopish (sahifa yopilgan, internet uzilgan). */
@@ -706,6 +737,7 @@ final class Recordings
             ],
             'counts' => $counts,
             'disk_bytes' => $disk,
+            'backlog_bytes' => self::backlogBytes(),
             'disk_limit_bytes' => Settings::int('rec_max_disk_mb') * 1048576,
             'queue' => self::queueStatus(),
             'now' => time(),

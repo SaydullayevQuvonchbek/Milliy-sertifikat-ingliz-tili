@@ -245,9 +245,25 @@ try {
     await page.locator('.lock-overlay').waitFor({ state: 'detached' });
   });
 
-  await step('Listening vaqti tugagach avtomatik yakunlanadi va tanaffus boshlanadi', async () => {
+  await step('Listening vaqti tugagach avtomatik yakunlanadi; tanaffusda F5 — kamera va ekran qayta so\'raladi', async () => {
     await page.locator('.break-card').waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: "Reading bo'limini boshlash" }).click();
+    // Bo'lim tugashi bilan Listening yozuvining hozirgacha qismi darhol serverga ketadi (tanaffusda F5 bo'lsa ham qoladi).
+    let listened = false;
+    for (let i = 0; i < 40 && !listened; i += 1) {
+      const res = await call('GET', `admin/mocks/${mockId}/attempts`);
+      const d = await call('GET', `admin/attempts/${res.attempts[0].id}`);
+      listened = d.recordings.some((r) => r.section === 'L');
+      if (!listened) await new Promise((r) => setTimeout(r, 250));
+    }
+    assert(listened, 'Listening yozuvi tanaffus boshida yuborilmadi');
+    await page.reload();
+    await page.locator('.break-card .proctor-check').waitFor();
+    const startR = page.getByRole('button', { name: "Reading bo'limini boshlash" });
+    assert(await startR.isDisabled(), 'kamera/ekran qayta yoqilmasdan boshlash tugmasi ochiq');
+    await page.getByRole('button', { name: 'Kamerani yoqish' }).click();
+    await page.getByRole('button', { name: 'Ekranni ulashish' }).click();
+    await page.locator('.proctor-status.ok', { hasText: 'Ekran ulashildi' }).waitFor();
+    await startR.click();
     await page.locator('.exam .eh-section', { hasText: 'Reading' }).waitFor();
   });
 
@@ -352,7 +368,9 @@ try {
     const recs = detail.recordings;
     for (const c of ['L', 'R', 'W', 'S']) assert(recs.some((r) => r.section === c), `${c} bo'limi yozuvi yo'q: ` + JSON.stringify(recs.map((r) => [r.section, r.status, r.size])));
     const brief = JSON.stringify(recs.map((r) => [r.section, r.status, r.size, r.pieces, r.duration_ms, r.complete]));
-    assert(recs.every((r) => r.size > 0 && Number(r.complete) === 1), "bo'sh yoki uzilgan yozuv bor: " + brief);
+    // Tanaffusda F5 bo'lgan Listening yozuvi yangi sahifa ochilganda yopiladi (to'liq emas) — qolganlari to'liq.
+    assert(recs.every((r) => r.size > 0 && r.status !== 'recording'), "bo'sh yoki yopilmagan yozuv bor: " + brief);
+    assert(recs.filter((r) => r.section !== 'L').every((r) => Number(r.complete) === 1), "to'liq bo'lmagan yozuv bor: " + brief);
     assert(recs.filter((r) => r.section === 'L' || r.section === 'S').every((r) => r.size > 20000 && r.duration_ms > 3000), 'Listening/Speaking yozuvi juda qisqa: ' + brief);
     // Yozma qism: ekran + kamera (Writing tugab Speaking oynasi ochilganda ekran ulashish to'xtaydi — u yog'i faqat kamera).
     for (const c of ['L', 'R', 'W']) assert(recs.some((r) => r.section === c && r.content === 'screen+camera'), `${c}: ekran + kamera yozuvi yo'q: ` + brief);

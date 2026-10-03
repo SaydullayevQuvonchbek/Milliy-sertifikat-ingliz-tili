@@ -342,10 +342,10 @@ function recordingsCard(settings) {
         h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Yuborilgan' }), h('span', { class: 'stat-value', text: String(count('sent')) })),
         h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Xato' }), h('span', { class: 'stat-value', text: String(count('failed')) })),
         h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Serverda' }), h('span', { class: 'stat-value small-value', text: MB(d.disk_bytes) }),
-          h('span', { class: 'stat-hint', text: d.disk_limit_bytes ? `chegara ${MB(d.disk_limit_bytes)}` : 'chegarasiz' }))
+          h('span', { class: 'stat-hint', text: `yuborilmagan ${MB(d.backlog_bytes)}${d.disk_limit_bytes ? ` / chegara ${MB(d.disk_limit_bytes)}` : ''}` }))
       ),
-      d.disk_limit_bytes && d.disk_bytes > d.disk_limit_bytes * 0.85
-        ? h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', { text: "Video uchun ajratilgan joy deyarli to'ldi. To'lsa, yangi yozuvlar qabul qilinmaydi (imtihon videosiz davom etadi). Telegram'ni sozlang yoki chegarani oshiring." }))
+      d.disk_limit_bytes && d.backlog_bytes > d.disk_limit_bytes * 0.85
+        ? h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', { text: "Telegram'ga yuborilmagan videolar uchun ajratilgan joy deyarli to'ldi. To'lsa, yangi yozuvlar qabul qilinmaydi (imtihon videosiz davom etadi, joy bo'shagach yozuv qayta boshlanadi). Telegram'ni sozlang yoki chegarani oshiring." }))
         : null,
       cronOld ? h('div', null,
         h('p', { class: 'small', text: "Hosting panelidagi cron (ispmanager → «Планировщик CRON») ga har daqiqada ishlaydigan buyruq qo'shing:" }),
@@ -364,7 +364,7 @@ function recordingsCard(settings) {
         field('Bitta fayl (daqiqa)', segment, 'Telegram: 50 MB gacha'),
         field("Yuborilmaganlarni o'chirish (kun)", keep, '0 — o\'chirilmaydi'),
         field('Speaking videolari (kun)', keepS, '0 — doim saqlanadi'),
-        field('Video uchun joy (MB)', diskMb, "To'lsa yozish to'xtaydi; 0 — chegarasiz")
+        field("Yuborilmagan videolar uchun joy (MB)", diskMb, "To'lsa yangi yozuv boshlanmaydi; 0 — chegarasiz")
       ),
       h('div', { class: 'actions' }, h('button', { class: 'btn btn-primary', type: 'button', onclick: saveRec }, 'Saqlash'))
     ));

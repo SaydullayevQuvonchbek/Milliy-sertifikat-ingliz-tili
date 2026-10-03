@@ -8,9 +8,11 @@ loyiha ildizidagi `.htaccess` (C joylashuvi uchun), `public/.user.ini` (PHP sozl
 Paketga **ataylab kiritilmagan**: `demo/` va `bin/seed-demo.php` (hammaga ma'lum parolli sinov hisoblarini yaratadi),
 `bin/dev-router.php`, `bin/check-content.php`, `content/tools/`, testlar, `.git`, `.github`, `deploy/`.
 
-**Nima sinalgan (2026-10-02):** PHP 8.4 va 8.3 da 72 ta PHP testi (SQLite va MariaDB 10.11), 5 ta JS testi; brauzerda
-to'liq ssenariy (o'quvchi, admin, ekspert — SQLite va MariaDB), 3 ta tayyor mock brauzerda; 150 o'quvchi bir vaqtda
-ishlagan yuklama sinovi (MariaDB, 0 xato). Apache 2.4.58 + mod_php 8.3 da paket A, B va C (pastki papkada) joylashuvlarida
+**Nima sinalgan (2026-10-03):** PHP 8.4 da 102 ta PHP testi (SQLite va MariaDB 10.11), 11 ta JS testi; brauzerda
+to'liq ssenariy (o'quvchi, admin, ekspert; soxta kamera va ekran bilan video nazorat, sahifani yangilash, soxta
+Telegram serveriga yuborish — SQLite va MariaDB); 150 o'quvchi bir vaqtda ishlagan yuklama sinovi, har biri video
+bo'laklari bilan (MariaDB, 0 xato, bo'lak p95 25 ms). 2026-10-02 dagi sinovlar (PHP 8.3, Apache + mod_php, tayyor
+mocklar) avvalgidek. Apache 2.4.58 + mod_php 8.3 da paket A, B va C (pastki papkada) joylashuvlarida
 o'rnatildi va 56 ta HTTP tekshiruvidan o'tdi: kirish, teskari proksi ortida IP aniqlash, IP bloki va uni ochish, yopiq
 fayllar, zaxira nusxa (SQLite, mysqldump, PHP dump — qayta yuklanganda jadvallar nazorat yig'indisi bir xil).
 

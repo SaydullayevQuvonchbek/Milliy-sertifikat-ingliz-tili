@@ -15,13 +15,15 @@ import { SECTION, T } from '../../lib/uz.js';
 /** Bo'lak uzunligi: sahifa yangilansa ko'pi bilan shuncha video yo'qoladi. */
 const PIECE_MS = 15000;
 /** Imtihon davomida ekranni qayta ulashish oynasi uchun beriladigan vaqt (shundan uzoq tursa — oynadan chiqish). */
-const PICKER_GRACE_MS = 20000;
+const PICKER_GRACE_MS = 45000;
 const MAX_SEGMENT_BYTES = 40 * 1024 * 1024;
 const MAX_QUEUE_BYTES = 160 * 1024 * 1024;
 /** Server rad etsa, yozuvni butunlay to'xtatadigan xatolar (imtihon yopilgan, boshqa oynaga o'tgan va h.k.). */
-const FATAL_CODES = new Set(['rec_closed', 'rec_disabled', 'rec_quota', 'rec_disk_full', 'taken_over', 'finished', 'terminated', 'not_found', 'unauthorized', 'forbidden']);
+const FATAL_CODES = new Set(['rec_closed', 'rec_disabled', 'rec_quota', 'taken_over', 'finished', 'terminated', 'not_found', 'unauthorized', 'forbidden']);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Shu sahifada hali yozilayotgan yoki yuborilayotgan yozuvlar (bir sahifada ikki imtihon oynasi bo'lishi mumkin). */
+const liveSegments = new Set();
 
 function clock(date = new Date()) {
   const p = (n) => String(n).padStart(2, '0');
@@ -192,7 +194,8 @@ export class Proctor {
     }
     if (locked) {
       const away = Date.now() - pickerOpened;
-      if (away > PICKER_GRACE_MS) {
+      // Lockdown shu orada o'zi qoidabuzarlik yozgan bo'lsa (incident) — ikki marta hisoblanmaydi.
+      if (away > PICKER_GRACE_MS && !lock.incident) {
         this.report('focus_lost', `Ekranni ulashish oynasi ${Math.round(away / 1000)} soniya ochiq turdi`, true);
       }
       lock.suppress(1500);
@@ -462,7 +465,49 @@ export class Proctor {
       return null;
     }
     this.everRecorded = true;
+    this.markLive(seg, true);
     return seg;
+  }
+
+  /**
+   * Yozilayotgan (oxirgi bo'lagi hali yuborilmagan) yozuv kaliti qurilmada eslab qolinadi: sahifa yopilib qayta
+   * ochilsa, yangi oyna serverga eski yozuvni yopishni aytadi (u Telegram'ga kechikmasdan yuboriladi).
+   */
+  markLive(seg, live) {
+    const storageKey = `mlm:rec:${this.o.attemptId}`;
+    if (live) liveSegments.add(seg.key);
+    else liveSegments.delete(seg.key);
+    try {
+      if (live) localStorage.setItem(storageKey, seg.key);
+      else if (localStorage.getItem(storageKey) === seg.key) localStorage.removeItem(storageKey);
+    } catch {
+      /* e'tiborsiz */
+    }
+  }
+
+  /** Oldingi (yopilgan) sahifadan qolgan, tugallanmagan yozuv kaliti — shu sahifada tirik bo'lmasa. */
+  static deadSegment(attemptId) {
+    try {
+      const key = localStorage.getItem(`mlm:rec:${attemptId}`);
+      return key && !liveSegments.has(key) ? key : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Joriy yozuvning hozirgacha yozilgan qismini darhol yuborish (bo'lim tugaganda) — tanaffusda sahifa
+   * yangilansa ham bo'limning oxiri yo'qolmaydi.
+   */
+  flush() {
+    const seg = this.seg;
+    if (seg && seg.recorder.state === 'recording') {
+      try {
+        seg.recorder.requestData();
+      } catch {
+        /* e'tiborsiz */
+      }
+    }
   }
 
   finishSegment(seg) {
@@ -534,6 +579,7 @@ export class Proctor {
   dropSegment(seg, reason) {
     if (seg.dropped) return;
     seg.dropped = true;
+    this.markLive(seg, false);
     this.queue = this.queue.filter((p) => {
       if (p.seg === seg && !p.sending) {
         this.queueBytes -= p.blob ? p.blob.size : 0;
@@ -576,12 +622,22 @@ export class Proctor {
           this.queueBytes -= p.blob ? p.blob.size : 0;
           this.lastUploadAt = Date.now();
           delay = 2000;
+          if (p.final) this.markLive(p.seg, false);
         } catch (err) {
           p.sending = false;
           const rejected = err instanceof ApiError && !err.isNetwork && err.status < 500 && err.status !== 408 && err.status !== 429;
           if (!rejected) {
             await sleep(delay);
             delay = Math.min(delay * 2, 30000);
+            continue;
+          }
+          if (err.code === 'rec_disk_full') {
+            // Serverda joy vaqtincha to'lgan (Telegram'ga yuborilgach bo'shaydi) — keyinroq qayta urinamiz.
+            if (!this.diskFullReported) {
+              this.diskFullReported = true;
+              this.report('rec_error', `${err.code}: ${err.message}`.slice(0, 200));
+            }
+            await sleep(60000);
             continue;
           }
           if (FATAL_CODES.has(err.code) || err.status === 401 || err.status === 403) {

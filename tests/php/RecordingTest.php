@@ -191,6 +191,20 @@ test('belgilar: kamera yoqilib ekran hali so\'ralmagan holat belgi qo\'ymaydi; b
     ok(!empty($p['camera_missing']) && !empty($p['screen_missing']));
 });
 
+test('sahifa yangilansa (claim) kamera/ekran holati o\'chadi: qayta yoqilmasa keyingi bo\'lim belgi bilan boshlanadi', function (): void {
+    [$a, $mock] = rec_setup(['sections' => ['R', 'W']]);
+    $a = A::setProctorStatus($a, $mock, ['camera' => 'ok', 'screen' => 'ok']);
+    $a = A::finishSection(A::startSection($a, $mock, 'R'), $mock, 'R');
+    ok(empty(Util::decode($a['meta_json'])['proctor']['camera_missing']));
+    // Tanaffusda F5: yangi oyna — eski qurilmalar ishlamaydi.
+    $a = A::resetProctorLive($a);
+    $p = Util::decode($a['meta_json'])['proctor'];
+    ok(!isset($p['camera']) && !isset($p['screen']));
+    $a = A::startSection($a, $mock, 'W');
+    $p = Util::decode($a['meta_json'])['proctor'];
+    ok(!empty($p['camera_missing']) && !empty($p['screen_missing']), 'qayta yoqilmagan — belgi: ' . json_encode($p));
+});
+
 test('majburiy kamera faqat birinchi bo\'limda tekshiriladi (tanaffusdan keyingi bo\'lim to\'xtab qolmaydi)', function (): void {
     [$a, $mock] = rec_setup(['sections' => ['R', 'W'], 'proctoring' => ['camera' => 'required', 'screen' => 'off']]);
     $a = A::setProctorStatus($a, $mock, ['camera' => 'ok']);
@@ -314,6 +328,23 @@ test('bo\'laklar: uzilib yopilgan (hali yuborilmagan) yozuv internet tiklanganda
     throws(fn () => Recordings::acceptPiece($a, $mock, rec_in(['piece' => '3']), rec_file('late')), 'segment_closed');
 });
 
+test('yangi sahifa eski (tugallanmagan) yozuvni yopadi; keyin bo\'lak kelsa — davom etadi', function (): void {
+    [$a, $mock] = rec_setup();
+    Recordings::acceptPiece($a, $mock, rec_in(['seg' => 'DEADaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head()));
+    ok(!Recordings::closeSegment($a, '../x'), "noto'g'ri kalit");
+    ok(!Recordings::closeSegment($a, 'NONEaaaaaaaaaaaaaaa1'), "yo'q kalit");
+    ok(Recordings::closeSegment($a, 'DEADaaaaaaaaaaaaaaa1'));
+    $row = Db::one('SELECT * FROM recordings');
+    eq('ready', $row['status']);
+    eq(0, (int) $row['complete']);
+    ok(!Recordings::closeSegment($a, 'DEADaaaaaaaaaaaaaaa1'), 'ikkinchi marta — o\'zgarmaydi');
+    // Boshqa urinishning kaliti bilan yopib bo'lmaydi.
+    [$b] = rec_setup();
+    Recordings::acceptPiece($b, $mock, rec_in(['seg' => 'OTHRaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head()));
+    ok(!Recordings::closeSegment($a, 'OTHRaaaaaaaaaaaaaaa1'));
+    eq('recording', Db::val("SELECT status FROM recordings WHERE seg_key = 'OTHRaaaaaaaaaaaaaaa1'"));
+});
+
 test('bo\'laklar: javobi yo\'qolgan oxirgi bo\'lak qayta yuborilsa, yozuv yopiladi', function (): void {
     [$a, $mock] = rec_setup();
     Recordings::acceptPiece($a, $mock, rec_in(), rec_file(rec_mp4_head()));
@@ -373,9 +404,18 @@ test('chegaralar: urinish hajmi vaqtga mos, yozuvlar soni, serverdagi umumiy joy
 
     [$b, $mock2] = rec_setup();
     Util::$testNowMs = ((int) $b['started_at']) * 1000 + 3600_000;
-    Settings::set('rec_max_disk_mb', 1);
+    Settings::set('rec_max_disk_mb', 100);
     Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKaaaaaaaaaaaaaaa1']), rec_file(rec_mp4_head()));
-    throws(fn () => Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKaaaaaaaaaaaaaaa1', 'piece' => '1']), rec_file(str_repeat('z', 1048576))), 'rec_disk_full');
+    // Telegram'ni kutayotgan 60 MB bor: yangi fayl boshlanmaydi (49 MB zaxira), boshlangani esa tugatiladi.
+    $backlog = Db::insert('recordings', [
+        'attempt_id' => $b['id'], 'seg_key' => 'WAITaaaaaaaaaaaaaaa1', 'section' => 'L', 'content' => 'screen', 'mime' => 'video/mp4',
+        'file' => 'a' . $b['id'] . '/WAIT.mp4', 'size' => 60 * 1048576, 'started_ms' => 0, 'last_ms' => 0, 'status' => 'ready', 'created_at' => 0,
+    ]);
+    throws(fn () => Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKbbbbbbbbbbbbbbb1']), rec_file(rec_mp4_head())), 'rec_disk_full');
+    Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKaaaaaaaaaaaaaaa1', 'piece' => '1']), rec_file('more'));
+    // Telegram'ga yuborilgan Speaking videolari chegaraga kirmaydi (ularni rec_speaking_keep_days boshqaradi).
+    Db::exec("UPDATE recordings SET section = 'S', status = 'sent', sent_at = 1 WHERE id = ?", [$backlog]);
+    Recordings::acceptPiece($b, $mock2, rec_in(['seg' => 'DISKbbbbbbbbbbbbbbb1']), rec_file(rec_mp4_head()));
     Settings::set('rec_max_disk_mb', 0);
 
     [$c, $mock3] = rec_setup();

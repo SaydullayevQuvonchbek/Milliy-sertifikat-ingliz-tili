@@ -241,7 +241,7 @@ Speaking 8 savol (savollar ekzaminator ovozida o'qiladi) va 3 ta rasm. Qiyinlik 
 ## Testlar
 
 ```bash
-php tests/php/run.php            # 92 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, zaxira, video nazorat va Telegram navbati
+php tests/php/run.php            # 102 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, zaxira, video nazorat va Telegram navbati
 MOCK_TEST_DB=mysql php tests/php/run.php   # xuddi shular MySQL/MariaDB da (MOCK_TEST_MYSQL_HOST/PORT/DB/USER/PASS; bazani tozalaydi!)
 node --test tests/js/*.test.mjs  # JS testlari: Listening vaqt jadvali (server bilan bir xil), so'z sanash, video format va kadr joylashuvi
 npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright, soxta kamera/ekran va soxta Telegram): o'quvchi, admin, ekspert (MOCK_E2E_DB=mysql ham mumkin; MOCK_E2E_SHOTS=papka — ekran rasmlari)

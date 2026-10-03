@@ -445,6 +445,21 @@ final class AttemptService
     }
 
     /**
+     * Sahifa yangidan ochilganda (claim): oldingi oynadagi kamera/ekran endi ishlamaydi — "ishlayapti" holati
+     * o'chiriladi, o'quvchi ularni qayta yoqqach yangilanadi. Aks holda tanaffusda sahifa yangilansa, keyingi bo'lim
+     * yozuvsiz, belgisiz boshlanib ketardi.
+     */
+    public static function resetProctorLive(array $a): array
+    {
+        $meta = self::meta($a);
+        if (!isset($meta['proctor']['camera']) && !isset($meta['proctor']['screen'])) {
+            return $a;
+        }
+        unset($meta['proctor']['camera'], $meta['proctor']['screen']);
+        return self::persist($a, ['meta_json' => Util::json($meta)]);
+    }
+
+    /**
      * Mijozdagi kamera va ekran holatini saqlash (darvozadan o'tishda va o'zgarganda). Mijoz hali so'ralmagan
      * qurilmani yubormaydi. Bo'lim faol paytdagi nosozlik "kamerasiz"/"ekransiz" belgisini qo'yadi.
      */

@@ -169,7 +169,9 @@ export class ExamApp {
   }
 
   claim(takeover) {
-    return post(`exam/${this.id}/claim`, { client_id: this.clientId, takeover });
+    // Oldingi sahifada tugallanmay qolgan video yozuv bo'lsa — server uni yopib, navbatga qo'yadi.
+    const dead = Proctor.deadSegment(this.id);
+    return post(`exam/${this.id}/claim`, { client_id: this.clientId, takeover, ...(dead ? { rec_dead: dead } : {}) });
   }
 
   async reloadState() {
@@ -484,33 +486,50 @@ export class ExamApp {
     const sec = state.section;
     const prevCode = state.attempt.sections[state.attempt.sections.indexOf(sec.code) - 1];
     const countdown = h('strong', { class: 'break-timer' });
+    const proctor = this.proctor;
+    // Bo'lim tugadi — uning oxirgi soniyalari darhol yuboriladi.
+    if (proctor) proctor.flush();
+    // Tanaffusda sahifa yangilangan bo'lsa, kamera va ekran qayta yoqilishi kerak (brauzer qoidasi).
+    const gate = proctor && !proctor.ready() ? proctor.gateCard() : null;
+    const startBtn = h('button', { class: 'btn btn-primary btn-lg', type: 'button' }, T.startSection(SECTION[sec.code]));
     let starting = false;
     const start = async () => {
-      if (starting) return;
+      if (starting || (proctor && !proctor.ready())) return;
       starting = true;
       this.gatePassed = true;
       if (!this.lock.enabled) {
         await this.lock.enterFullscreen();
         this.lock.enable();
       }
+      if (gate) await proctor.sendStatus();
       await this.startSection(sec.code);
     };
+    startBtn.onclick = start;
+    const update = () => {
+      startBtn.disabled = Boolean(proctor && !proctor.ready());
+    };
+    const unsubscribe = gate ? proctor.onChange(update) : null;
     this.view = {
       tick: (now) => {
         const left = sec.auto_start_ms - now;
         setText(countdown, formatClock(Math.max(0, left)));
+        // Kamera/ekran qayta yoqilmagan bo'lsa — avtomatik boshlanmaydi (server o'zi boshlaydi, keyin
+        // "davom etish" oynasida yana so'raladi).
         if (left <= 0) start();
       },
+      destroy: () => unsubscribe && unsubscribe(),
     };
     this.root.replaceChildren(h('div', { class: 'center-screen' },
-      h('div', { class: 'card card-narrow break-card' },
+      h('div', { class: gate ? 'card rules-card break-card' : 'card card-narrow break-card' },
         prevCode ? h('p', { class: 'eyebrow', text: T.sectionFinished(SECTION[prevCode]) }) : null,
         h('h2', { text: T.nextSection(SECTION[sec.code]) }),
         h('p', { class: 'muted', text: T.sectionDuration(Math.round(sec.duration_ms / 60000)) }),
         h('p', null, T.autoStartPrefix, ' ', countdown, ' ', T.autoStartSuffix),
-        h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: start }, T.startSection(SECTION[sec.code]))
+        gate,
+        startBtn
       )
     ));
+    update();
     this.view.tick(serverNow());
   }
 

@@ -56,7 +56,12 @@ final class ExamController
             $a = AttemptService::refresh($a, $mock);
             if ($a['status'] === 'in_progress') {
                 $a = AttemptService::claim($a, $r->str('client_id'), (bool) $r->input('takeover', false));
-                $a = AttemptService::refresh($a, $mock);
+                $a = AttemptService::resetProctorLive(AttemptService::refresh($a, $mock));
+            }
+            // Oldingi sahifada tugallanmay qolgan video yozuv (sahifa yopilgan/yangilangan) — yopilib navbatga qo'yiladi.
+            $dead = $r->str('rec_dead');
+            if ($dead !== '') {
+                Recordings::closeSegment($a, $dead);
             }
             return AttemptService::stateFor($a, $mock, $user);
         }, false);
