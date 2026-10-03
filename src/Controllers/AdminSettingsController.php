@@ -33,6 +33,11 @@ final class AdminSettingsController
         if ($r->input('max_attempts_cap') !== null) {
             Settings::set('max_attempts_cap', max(1, min(2, $r->int('max_attempts_cap', 2))));
         }
+        foreach (Settings::LIMITS as $name => [$min, $max]) {
+            if ($r->input($name) !== null && is_numeric($r->input($name))) {
+                Settings::set($name, max($min, min($max, $r->int($name))));
+            }
+        }
         Audit::log((int) $admin['id'], 'settings_update');
         return ['settings' => Settings::all()];
     }

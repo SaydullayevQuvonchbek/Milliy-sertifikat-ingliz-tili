@@ -246,12 +246,132 @@ export async function settingsPage(root) {
       field('Bitta o\'quvchi bitta mockni ko\'pi bilan', cap, "Qat'iy yuqori chegara. Har bir mockda bundan kam son belgilash mumkin."),
       h('div', { class: 'actions' }, saveBtn)
     ),
+    recordingsCard(settings),
     securityCard(),
     h('div', { class: 'card form-narrow' },
       h('h3', { text: 'Parolni almashtirish' }),
       passwordForm()
     )
   );
+}
+
+// ---------------------------------------------------------------------
+// Video yozuvlar va Telegram
+// ---------------------------------------------------------------------
+
+const MB = (bytes) => `${(Number(bytes || 0) / 1048576).toFixed(1)} MB`;
+const ago = (ts, now) => {
+  if (!ts) return '—';
+  const s = Math.max(0, now - ts);
+  if (s < 90) return `${s} soniya oldin`;
+  if (s < 5400) return `${Math.round(s / 60)} daqiqa oldin`;
+  if (s < 172800) return `${Math.round(s / 3600)} soat oldin`;
+  return formatDate(ts);
+};
+
+function recordingsCard(settings) {
+  const title = h('h3', { text: 'Video yozuvlar va Telegram' });
+  const card = h('div', { class: 'card form-narrow' }, title, spinner());
+  const num = (key, min, max) => h('input', { class: 'input input-num', type: 'number', min, max, value: settings[key] });
+  const kbps = num('rec_video_kbps', 100, 2000);
+  const segment = num('rec_segment_min', 2, 20);
+  const keep = num('rec_keep_days', 0, 3650);
+  const keepS = num('rec_speaking_keep_days', 0, 3650);
+  let busy = false;
+
+  const saveRec = async () => {
+    try {
+      const res = await put('admin/settings', {
+        rec_video_kbps: Number(kbps.value), rec_segment_min: Number(segment.value),
+        rec_keep_days: Number(keep.value), rec_speaking_keep_days: Number(keepS.value),
+      });
+      Object.assign(settings, res.settings);
+      toast('Saqlandi.', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const action = async (path, label) => {
+    if (busy) return;
+    busy = true;
+    try {
+      const res = await post(path);
+      if (res.results) {
+        res.results.forEach((r) => toast(r.ok ? `${r.chat}: xabar yuborildi.` : `${r.chat}: ${r.error}`, r.ok ? 'success' : 'error', 9000));
+      } else if (res.result) {
+        const x = res.result;
+        toast(x.busy ? 'Navbat hozir boshqa jarayonda ishlayapti (cron).' : `Yuborildi: ${x.sent}, xato: ${x.failed}${x.error ? ' — ' + x.error : ''}`, x.failed ? 'error' : 'success', 9000);
+      } else if (res.requeued !== undefined) {
+        toast(`${res.requeued} ta yozuv qayta navbatga qo'yildi.`, 'success');
+      } else {
+        toast(label, 'success');
+      }
+    } catch (err) {
+      toast(err.message, 'error', 9000);
+    } finally {
+      busy = false;
+      load();
+    }
+  };
+
+  const draw = (d) => {
+    const tg = d.telegram;
+    const c = d.counts || {};
+    const count = (k) => (c[k] ? c[k].count : 0);
+    const q = d.queue || {};
+    const cronOld = !q.last_run_at || d.now - q.last_run_at > 180;
+    const waiting = count('ready') + count('recording');
+    // replaceChildren(null) "null" matnini chiqaradi — shuning uchun h() orqali (u bo'sh qiymatlarni tashlaydi).
+    card.replaceChildren(h('div', { class: 'tg-card' },
+      title,
+      h('p', { class: 'muted small', text: "Ekran va kamera yozuvlari 10 daqiqalik fayllarda serverga keladi va navbat orqali Telegram kanalga yuboriladi. Yozma qism videolari yuborilgach serverdan o'chiriladi; Speaking videolari serverda ham saqlanadi. Har mock uchun yoqish/o'chirish: Mock → Umumiy → Video nazorat." }),
+      h('div', { class: 'tg-status small' },
+        tg.configured
+          ? h('div', null, h('span', { class: 'ok', text: 'Telegram sozlangan' }), ` · bot ${tg.token} · kanal ${tg.chat}${tg.speaking_chat ? ` · Speaking kanali ${tg.speaking_chat}` : ''} · ${tg.relay ? `relay: ${tg.api_host}` : 'to\'g\'ridan-to\'g\'ri (api.telegram.org)'}${tg.proxy ? ' · proxy orqali' : ''}`)
+          : h('div', null, h('span', { class: 'bad', text: 'Telegram sozlanmagan' }), " — yozuvlar faqat serverda saqlanadi. config/config.php ga 'telegram' bo'limini yozing (yo'riqnoma: SERVERGA-JOYLASH.md, 10-bo'lim)."),
+        tg.curl ? null : h('div', { class: 'bad', text: "PHP curl kengaytmasi yo'q — Telegram'ga yuborib bo'lmaydi." }),
+        h('div', null, 'Navbat oxirgi marta: ', h('strong', { text: ago(q.last_run_at, d.now) }), cronOld ? h('span', { class: 'bad', text: ' — cron ishlamayapti shekilli' }) : null),
+        q.last_sent_at ? h('div', null, "Oxirgi yuborilgan video: ", ago(q.last_sent_at, d.now), q.sent_total ? ` · jami ${q.sent_total} ta` : '') : null,
+        q.last_error ? h('div', { class: 'bad', text: `Oxirgi xato (${ago(q.last_error_at, d.now)}): ${q.last_error}` }) : null
+      ),
+      h('div', { class: 'stats' },
+        h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Navbatda' }), h('span', { class: 'stat-value', text: String(waiting) }), h('span', { class: 'stat-hint', text: count('recording') ? `${count('recording')} tasi yozilmoqda` : '' })),
+        h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Yuborilgan' }), h('span', { class: 'stat-value', text: String(count('sent')) })),
+        h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Xato' }), h('span', { class: 'stat-value', text: String(count('failed')) })),
+        h('div', { class: 'stat' }, h('span', { class: 'stat-label', text: 'Serverda' }), h('span', { class: 'stat-value small-value', text: MB(d.disk_bytes) }))
+      ),
+      cronOld ? h('div', null,
+        h('p', { class: 'small', text: "Hosting panelidagi cron (ispmanager → «Планировщик CRON») ga har daqiqada ishlaydigan buyruq qo'shing:" }),
+        h('div', { class: 'tg-cron', text: '/opt/php/8.3/bin/php /var/www/FOYDALANUVCHI/data/www/SAYT/bin/recordings.php' }),
+        h('p', { class: 'muted small', text: "Yo'lni o'zingiznikiga almashtiring. Cron bo'lmasa, quyidagi «Navbatni hozir yuborish» tugmasini bosib turish mumkin." })
+      ) : null,
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn btn-ghost', type: 'button', onclick: load }, 'Yangilash'),
+        h('button', { class: 'btn', type: 'button', disabled: !tg.configured, onclick: () => action('admin/recordings/test', 'Yuborildi') }, 'Sinov xabari'),
+        h('button', { class: 'btn', type: 'button', onclick: () => action('admin/recordings/run') }, 'Navbatni hozir yuborish'),
+        count('failed') ? h('button', { class: 'btn', type: 'button', onclick: () => action('admin/recordings/retry') }, 'Xatolarni qayta yuborish') : null
+      ),
+      h('h4', { text: 'Sifat va saqlash' }),
+      h('div', { class: 'row' },
+        field('Video sifati (kbit/s)', kbps, '250 ≈ 1.9 MB/daqiqa'),
+        field('Bitta fayl (daqiqa)', segment, 'Telegram: 50 MB gacha'),
+        field("Yuborilmaganlarni o'chirish (kun)", keep, '0 — o\'chirilmaydi'),
+        field('Speaking videolari (kun)', keepS, '0 — doim saqlanadi')
+      ),
+      h('div', { class: 'actions' }, h('button', { class: 'btn btn-primary', type: 'button', onclick: saveRec }, 'Saqlash'))
+    ));
+  };
+
+  async function load() {
+    try {
+      draw(await get('admin/recordings/status'));
+    } catch (err) {
+      card.replaceChildren(title, errorBox(err.message, load));
+    }
+  }
+  load();
+  return card;
 }
 
 // ---------------------------------------------------------------------

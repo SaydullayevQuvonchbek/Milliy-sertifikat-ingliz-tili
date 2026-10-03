@@ -42,6 +42,12 @@ fayllar, zaxira nusxa (SQLite, mysqldump, PHP dump — qayta yuklanganda jadvall
   shart. Rad etilsa: "Mikrofonga ruxsat berilmadi…" — brauzer sozlamalarida mikrofonga ruxsat berib, qayta urinish kerak.
 - **Quloqchin.** Kompyuter sinfida har o'quvchiga mikrofonli quloqchin: Listening audiosi va boshqalarning ovozi Speaking
   yozuviga aralashmasligi uchun.
+- **Kamera va ekran (video nazorat yoqilgan mocklarda — 10-bo'lim).** Imtihon boshida "Kamerani yoqish" (brauzer ruxsat
+  so'raydi → "Ruxsat berish") va "Ekranni ulashish" bosiladi; ochilgan oynada **"Butun ekran" (Entire screen)** tanlanib,
+  "Ulashish" bosilishi shart — oyna yoki vkladka tanlansa qabul qilinmaydi. Bu brauzer qoidasi: sahifa ekranni o'zi yoza
+  olmaydi. Kamerasi yo'q kompyuterda (mock sozlamasi "Bo'lsa yoziladi" bo'lsa) imtihon davom etadi, natijada
+  "kamerasiz" belgisi turadi. Videoga internet kerak: bir o'quvchiga ~0.3 Mbit/s yuklash (upload) — 30 kompyuterli sinfga
+  ~8–10 Mbit/s.
 - **Internet.** Javoblar serverga avtomatik saqlanadi. Aloqa uzilsa, ekranda "Internet yo'q — javoblar qurilmada
   saqlanmoqda" chiqadi; aloqa tiklangach yuboriladi.
 - Sayt faqat `https://` manzili bilan ochilsin. Bitta markazdan ko'p o'quvchi kirsa — 5-bo'limga qarang.
@@ -130,7 +136,9 @@ Paketdagi ildiz `.htaccess` so'rovlarni `public/` ga yo'naltiradi va `src`, `con
    - Admin parolini o'zgartiring (Sozlamalar → Parolni almashtirish), ekspert va o'quvchilarni qo'shing (ro'yxatni
      Excel'dan nusxalash mumkin).
    - Har bir mockning o'z sozlamalari (**Mocklar → mock → Umumiy**): "Qoidabuzarliklar chegarasi" va "Chegaradan oshsa",
-     "Har ishni nechta ekspert baholaydi", "Bitta o'quvchi necha marta ishlay oladi", ochilish/yopilish vaqti.
+     "Har ishni nechta ekspert baholaydi", "Bitta o'quvchi necha marta ishlay oladi", ochilish/yopilish vaqti,
+     **"Video nazorat"** (kamera va ekran: o'chiq / bo'lsa yoziladi / majburiy — 10-bo'lim), **"Bo'limni vaqt tugamasdan
+     yakunlashga ruxsat"** va **"Speaking: … javobni erta tugatib keyingi savolga o'tish"**.
    - Hosting panelida "Force HTTPS" (HTTP → HTTPS yo'naltirish) ni yoqing — kod o'zi yo'naltirmaydi.
    - Zaxira nusxa uchun cron qo'ying (7-bo'lim).
 
@@ -210,10 +218,14 @@ Repo yangilanganda: lokal klonda `git pull`, so'ng repo papkasida `python deploy
 bo'ladi (`MANIFEST.txt` da commit). Serverda yangi zip'ni ochib, eski fayllar ustidan yozing — **`config/config.php` va
 `storage/` dan tashqari**. Keyin `https://SAYT/api/auth/me` va admin panelni tekshiring; brauzer eski JS ni ko'rsatsa,
 Ctrl+F5. Yangi tayyor mocklar bo'lsa: `php bin/seed-content.php`.
-**Diqqat:** avtomatik migratsiya yo'q — `database/*.sql` o'zgargan bo'lsa (yangi ustun yoki indeks), `install.php`
-mavjud jadvallarni o'zgartirmaydi; kerakli `ALTER TABLE` buyruqlarini phpMyAdmin'da qo'lda bajarish kerak.
-Joriy versiyada sxema o'zgarmagan. `config.php` ga yangi kalitlar (`login_ip_limit`, `register_ip_limit`,
-`trusted_proxies`) qo'shilmasa ham ishlaydi — standart qiymatlar olinadi.
+**Yangi jadvallar o'zi yaratiladi:** yangilangan saytga birinchi so'rov kelganda yetishmayotgan jadvallar
+(`CREATE TABLE IF NOT EXISTS` — mavjudlariga tegilmaydi) yaratiladi va `storage/schema.v2` belgisi yoziladi. Bu
+versiyada yangi jadval — `recordings` (video yozuvlar); buyruq qatori shart emas. Mavjud jadvalga ustun qo'shilganda esa
+`ALTER TABLE` ni phpMyAdmin'da qo'lda bajarish kerak bo'ladi (joriy versiyada bunday o'zgarish yo'q).
+`config.php` ga yangi kalitlar (`login_ip_limit`, `register_ip_limit`, `trusted_proxies`, `telegram`) qo'shilmasa ham
+ishlaydi — standart qiymatlar olinadi (Telegram'siz videolar faqat serverda saqlanadi).
+**Bu versiyadan keyin** `public/.htaccess` ham yangilanishi shart: unda kamera va ekranni ulashishga ruxsat
+(`Permissions-Policy: camera=(self), display-capture=(self)…`) bor — eski fayl qolsa, brauzer kamerani bloklaydi.
 
 ## 9. Muammolar
 
@@ -235,3 +247,99 @@ Joriy versiyada sxema o'zgarmagan. `config.php` ga yangi kalitlar (`login_ip_lim
 | Kirish sekin (imtihon boshida) | Parol xeshi ataylab sekin (`password_cost`); o'quvchilarni 5–10 daqiqa oralig'ida kiriting |
 | Brauzer konsolida `419 Page Expired` | Sessiya muddati o'tgan (12 soat) yoki boshqa oynada chiqilgan — sahifani yangilang. Xatolik emas |
 | Ismlar bo'yicha qidiruv kirillcha katta/kichik harfga sezgir | Faqat SQLite'da shunday; MySQL'da qidiruv registrga bog'liq emas |
+| "Kameraga ruxsat berilmadi" hammada | Sayt HTTP da ochilgan; yoki serverda eski `public/.htaccess` (`camera=()`) qolgan — yangisini yuklang (8-bo'lim); yoki brauzerda kamera bloklangan (manzil satridagi belgi) |
+| "Ekranni ulashish" oynasi chiqmaydi | Chrome/Edge emas, yoki HTTP; Safe Exam Browser rejimida ekran yozilmaydi |
+| Video bo'laklari "413" bilan qaytadi | Hosting nginx'ining `client_max_body_size` 16 MB dan kichik — hostingdan oshirishni so'rang |
+| Telegram: "ulanib bo'lmadi… timeout" | Server Rossiyada — `api.telegram.org` bloklangan; 10-bo'lim, relay yoki proxy |
+| Telegram: "chat not found" yoki "not enough rights" | Bot kanalga qo'shilmagan yoki administrator emas; `chat_id` noto'g'ri (`-100…` bilan boshlanishi kerak) |
+| Admin panelda "cron ishlamayapti shekilli" | `bin/recordings.php` cron'i qo'yilmagan (10-bo'lim); vaqtincha "Navbatni hozir yuborish" tugmasi |
+
+## 10. Video nazorat (kamera va ekran) va Telegram kanal
+
+**Nima yoziladi.** Listening, Reading va Writing davomida — o'quvchi ekrani va kamerasi bitta videoda (ekran 1280×720
+gacha, kamera pastki o'ng burchakda, ustida nomzod kodi, bo'lim va vaqt). Speaking'da — kamera va ovoz. Video
+10 daqiqalik fayllarga bo'linadi (sozlanadi) va har 30 soniyada bo'lak-bo'lak serverga yuboriladi: internet uzilsa
+brauzer kutadi, sahifa yangilansa yozuv yangi faylda davom etadi. Har mock uchun alohida yoqiladi
+(**Mocklar → mock → Umumiy → Video nazorat**): kamera va ekran — "O'chiq", "Bo'lsa yoziladi" (rad etsa yoki kamera yo'q
+bo'lsa imtihon davom etadi, natijalar jadvalida "kamerasiz"/"ekransiz" belgisi turadi) yoki "Majburiy" (ishlamasa
+imtihon boshlanmaydi; ekran ulashishni to'xtatish va kamerani uzish qoidabuzarlik hisoblanadi). Yangi mocklarda
+standart — "Bo'lsa yoziladi". Ekranni ulashish to'xtatilsa — ogohlantirish va "Ekranni qayta ulashish" tugmasi chiqadi.
+
+**Qayerga ketadi.** Server videolarni navbat bilan Telegram kanalga yuboradi (yozuv ostida: mock, o'quvchi, kod,
+bo'lim, vaqt, belgilar). **Yozma qism videolari kanalga yuborilgach serverdan o'chiriladi; Speaking videolari serverda
+ham qoladi.** Admin panelda (urinish sahifasi → "Video yozuvlar") har fayl holati, "Ko'rish", "Yuklab olish" va kanal
+xabariga "Telegram" havolasi bor. Telegram sozlanmagan yoki ishlamasa, videolar serverda turadi va
+`rec_keep_days` kundan (standart 30) keyin o'chiriladi.
+
+**Hajm.** 250 kbit/s (standart) ≈ 1.9 MB/daqiqa: yozma qism (~2 soat 45 daqiqa) ≈ 300 MB, Speaking ≈ 20–30 MB bir
+o'quvchiga. 100 o'quvchi bir vaqtda ≈ 25 Mbit/s serverga kirish va Telegram'ga chiqish. Telegram cheklovlari: bitta fayl
+50 MB gacha (10 daqiqalik fayl ≈ 19 MB), bitta kanalga daqiqasiga 20 tagacha xabar — navbat shunga moslab yuboradi
+(100 o'quvchida ham imtihon davomida yetib boradi, ko'p bo'lsa imtihondan keyin tugatadi). Sifat va saqlash muddati:
+**Sozlamalar → Video yozuvlar va Telegram**.
+
+### Telegram'ni sozlash
+
+1. Telegram'da **@BotFather** → `/newbot` → bot nomi → **token** (`123456789:AA…`). Tokenni hech kimga yubormang.
+2. **Yopiq kanal** yarating (masalan "Mock — video nazorat"), botni kanalga **administrator** qilib qo'shing
+   ("Xabar joylash" huquqi bilan). Speaking uchun alohida kanal kerak bo'lsa — ikkinchisini ham.
+3. Kanal ID'si: kompyuterda **web.telegram.org/a** da kanalni oching — manzil satrining oxirida `#-100…` raqami ko'rinadi
+   (`-100` bilan birga oling). Yoki kanaldagi xabarni @JsonDumpBot ga forward qiling (`forward_from_chat.id`).
+   Ochiq kanal bo'lsa `@kanal_nomi` ham bo'ladi.
+4. `config/config.php` ga:
+
+   ```php
+   'telegram' => [
+       'bot_token' => '123456789:AA…',
+       'chat_id' => '-1001234567890',
+       'speaking_chat_id' => '',        // ixtiyoriy, Speaking uchun alohida kanal
+       'api_base' => '',                // relay bo'lsa: 'https://tg.sizning-domen.uz'
+       'proxy' => '',                   // yoki: 'socks5h://user:parol@host:1080'
+   ],
+   ```
+
+5. **Cron (har daqiqa)** — hosting panelida (ispmanager → «Планировщик CRON»): PHP va skript yo'lini to'liq yozing,
+   masalan reg.ru'da:
+
+   ```
+   * * * * *  /opt/php/8.3/bin/php /var/www/FOYDALANUVCHI/data/www/SAYT/bin/recordings.php
+   ```
+
+   U uzilib qolgan yozuvlarni yig'adi, muddati o'tganlarini o'chiradi va navbatni ~50 soniya davomida yuboradi.
+   Bir vaqtda faqat bitta nusxasi ishlaydi. Cron bo'lmasa — admin panelda "Navbatni hozir yuborish" tugmasi.
+6. Tekshirish: **Sozlamalar → Video yozuvlar va Telegram → "Sinov xabari"** — kanal(lar)da "✅ … Telegram ulanishi
+   ishlayapti" chiqishi kerak. Yoki SSH'da: `php bin/recordings.php --test` va `php bin/recordings.php --status`.
+
+### Server Rossiyada bo'lsa (reg.ru va boshqalar)
+
+2026-yil martidan Rossiyadagi hosting serverlaridan `api.telegram.org` ga ulanish bloklangan (botlar "timeout" beradi).
+Bunday hostingda "Sinov xabari" `Telegram'ga ulanib bo'lmadi… timeout` deydi. Yechimlar:
+
+- **Relay** — Rossiyadan tashqaridagi kichik VPS'da (O'zbekiston, Yevropa) teskari proksi; `config.php` da
+  `'api_base' => 'https://tg.sizning-domen.uz'`. Caddy bilan (avtomatik HTTPS):
+
+  ```
+  tg.sizning-domen.uz {
+      @begona not remote_ip SAYT_SERVERI_IP
+      respond @begona 403
+      request_body { max_size 60MB }
+      reverse_proxy https://api.telegram.org {
+          header_up Host api.telegram.org
+      }
+  }
+  ```
+
+  `SAYT_SERVERI_IP` — sayt serverining IP manzili (relay'dan faqat u foydalansin). Videolar va token relay orqali o'tadi,
+  shuning uchun VPS sizniki bo'lsin.
+- **Proxy** — tashqaridagi SOCKS5/HTTP proxy: `'proxy' => 'socks5h://user:parol@host:1080'`.
+- **Hostingni O'zbekistondagi serverga ko'chirish** — Telegram to'g'ridan-to'g'ri ishlaydi; qo'shimcha afzalligi:
+  o'quvchilarning shaxsiy ma'lumotlari (ism, telefon, video) O'zbekiston hududidagi serverda saqlanadi.
+
+Relay sozlanguncha videolar serverda navbatda turadi va admin panelda ko'rinadi; Telegram ishlay boshlagach
+navbat o'zi yuboriladi.
+
+### Maxfiylik
+
+- O'quvchilarga imtihondan oldin video yozilishini ayting — imtihon qoidalarida va boshlash oynasida bu yozilgan.
+- Kanal **yopiq** bo'lsin, unga faqat tekshiruvchilarni qo'shing; havolani tarqatmang. Kanal xabarlarida o'quvchi ismi
+  va kodi bor (telefon raqami yo'q).
+- Voyaga yetmagan o'quvchilar bo'lsa, ota-onasining roziligi haqida markaz qoidasini belgilang.

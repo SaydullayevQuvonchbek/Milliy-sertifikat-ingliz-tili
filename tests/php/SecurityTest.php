@@ -249,3 +249,13 @@ test('CSP: .htaccess dagi matn Security::CSP bilan bir xil', static function ():
     ok(!preg_match("/script-src[^;]*unsafe/", Security::CSP), "script-src da 'unsafe-*' bo'lmasligi kerak");
     ok(str_contains($htaccess, 'X-Frame-Options'), 'X-Frame-Options yo\'q');
 });
+
+test('Permissions-Policy: .htaccess va README dagi matn Security::PERMISSIONS bilan bir xil, kamera va ekran ochiq', static function (): void {
+    $htaccess = (string) file_get_contents(APP_ROOT . '/public/.htaccess');
+    $readme = (string) file_get_contents(APP_ROOT . '/README.md');
+    ok(str_contains($htaccess, 'Header always set Permissions-Policy "' . Security::PERMISSIONS . '"'), '.htaccess dagi Permissions-Policy mos emas');
+    ok(str_contains($readme, 'add_header Permissions-Policy "' . Security::PERMISSIONS . '"'), 'README (nginx) dagi Permissions-Policy mos emas');
+    foreach (['camera=(self)', 'display-capture=(self)', 'microphone=(self)'] as $needed) {
+        ok(str_contains(Security::PERMISSIONS, $needed), "{$needed} yo'q — video nazorat ishlamaydi");
+    }
+});

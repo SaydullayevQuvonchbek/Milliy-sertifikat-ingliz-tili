@@ -12,7 +12,29 @@ final class Settings
         'registration_open' => true,
         // Bitta o'quvchi bitta mockni ko'pi bilan necha marta ishlashi mumkin (qat'iy yuqori chegara).
         'max_attempts_cap' => 2,
+        // Video nazorat (ekran + kamera): video sifati (kbit/s) va bitta faylning uzunligi (daqiqa).
+        // 250 kbit/s ≈ 1.9 MB/daqiqa; 10 daqiqalik fayl ≈ 19 MB (Telegram cheklovi — 50 MB).
+        'rec_video_kbps' => 250,
+        'rec_segment_min' => 10,
+        // Telegram'ga yuborilmagan yozma qism videolari necha kundan keyin serverdan o'chiriladi (0 — o'chirilmaydi).
+        'rec_keep_days' => 30,
+        // Speaking videolari serverda necha kun saqlanadi (0 — doim).
+        'rec_speaking_keep_days' => 0,
     ];
+
+    /** @var array<string, array{0:int,1:int}> Sonli sozlamalarning chegaralari. */
+    public const LIMITS = [
+        'rec_video_kbps' => [100, 2000],
+        'rec_segment_min' => [2, 20],
+        'rec_keep_days' => [0, 3650],
+        'rec_speaking_keep_days' => [0, 3650],
+    ];
+
+    public static function int(string $name): int
+    {
+        [$min, $max] = self::LIMITS[$name] ?? [PHP_INT_MIN, PHP_INT_MAX];
+        return max($min, min($max, (int) self::get($name)));
+    }
 
     private static ?array $cache = null;
 

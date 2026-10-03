@@ -171,3 +171,36 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail TEXT NOT NULL,
     created_at INT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Video nazorat: ekran + kamera yozuvlari (bo'laklab yuklanadi, keyin Telegram kanalga yuboriladi).
+CREATE TABLE IF NOT EXISTS recordings (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    attempt_id INT UNSIGNED NOT NULL,
+    seg_key VARCHAR(32) NOT NULL,
+    section VARCHAR(4) NOT NULL,
+    content VARCHAR(16) NOT NULL,
+    has_audio TINYINT NOT NULL DEFAULT 0,
+    mime VARCHAR(80) NOT NULL,
+    codec VARCHAR(40) NULL,
+    file VARCHAR(190) NOT NULL,
+    size BIGINT NOT NULL DEFAULT 0,
+    pieces INT UNSIGNED NOT NULL DEFAULT 0,
+    started_ms BIGINT NOT NULL,
+    last_ms BIGINT NOT NULL,
+    duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+    width SMALLINT UNSIGNED NULL,
+    height SMALLINT UNSIGNED NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'recording',
+    complete TINYINT NOT NULL DEFAULT 0,
+    file_deleted TINYINT NOT NULL DEFAULT 0,
+    tg_chat VARCHAR(64) NULL,
+    tg_message_id BIGINT NULL,
+    tg_tries SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    tg_next_at INT UNSIGNED NOT NULL DEFAULT 0,
+    tg_error VARCHAR(300) NULL,
+    sent_at INT UNSIGNED NULL,
+    created_at INT UNSIGNED NOT NULL,
+    UNIQUE KEY uq_rec_seg (attempt_id, seg_key),
+    KEY idx_rec_queue (status, tg_next_at),
+    CONSTRAINT fk_rec_attempt FOREIGN KEY (attempt_id) REFERENCES attempts (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

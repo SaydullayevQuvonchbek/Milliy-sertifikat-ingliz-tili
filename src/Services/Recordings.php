@@ -1,0 +1,593 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Config;
+use App\Db;
+use App\Http\HttpError;
+use App\Settings;
+use App\Util;
+use finfo;
+
+/**
+ * Video nazorat yozuvlari (ekran + kamera; Speaking'da kamera + ovoz).
+ *
+ * Brauzer har ~30 soniyada bitta bo'lak (piece) yuboradi; bo'laklar alohida fayllarga yoziladi
+ * (qayta yuborilsa ustiga yoziladi — takrorlanmaydi), oxirgi bo'lak kelganda yoki yozuv uzilib qolsa
+ * bitta faylga yig'iladi (segment, ~10 daqiqa, 49 MB gacha) va Telegram navbatiga qo'yiladi.
+ *
+ * Holatlar: recording → ready → sent (Telegram'ga ketdi) | failed (ko'p urinishdan keyin) | expired (o'chirildi).
+ * Yozma qism videolari Telegram'ga yuborilgach serverdan o'chiriladi; Speaking videolari serverda qoladi.
+ */
+final class Recordings
+{
+    public const PIECE_LIMIT = 12 * 1024 * 1024;
+    /** Telegram bot 50 MB gacha fayl yuboradi. */
+    public const SEGMENT_LIMIT = 49 * 1024 * 1024;
+    /** Shuncha vaqt yangi bo'lak kelmasa — yozuv tugagan hisoblanadi va yig'iladi. */
+    public const STALE_MS = 3 * 60_000;
+    /** Imtihon tugagandan keyin ham oxirgi bo'laklar shuncha vaqt qabul qilinadi. */
+    public const AFTER_FINISH_GRACE_SEC = 20 * 60;
+    public const CONTENTS = ['screen+camera', 'screen', 'camera'];
+    /** Telegram: bitta kanalga daqiqasiga 20 tagacha xabar — har yuborish orasida kamida shuncha soniya. */
+    public const SEND_SPACING_SEC = 3.2;
+    public const MAX_TRIES = 12;
+    private const MIMES = ['video/mp4' => 'mp4', 'video/webm' => 'webm'];
+    /** Birinchi bo'lakning haqiqiy turi (finfo) — shulardan biri bo'lishi kerak. */
+    private const DETECTED = ['video/mp4', 'video/webm', 'video/x-matroska', 'audio/webm', 'audio/mp4', 'video/quicktime', 'application/octet-stream'];
+
+    // ---------------------------------------------------------------------
+    // Fayl yo'llari
+    // ---------------------------------------------------------------------
+
+    public static function root(): string
+    {
+        return Config::storagePath('recordings');
+    }
+
+    /** Bazadagi nisbiy nom ("a12/abc.mp4") → to'liq yo'l. */
+    public static function path(string $file): string
+    {
+        $parts = array_values(array_filter(explode('/', str_replace('\\', '/', $file)), static fn ($p) => $p !== '' && $p !== '.' && $p !== '..'));
+        return self::root() . '/' . implode('/', $parts);
+    }
+
+    private static function partPath(array $row, int $n): string
+    {
+        return self::path('a' . (int) $row['attempt_id'] . '/' . $row['seg_key'] . '.' . $n . '.part');
+    }
+
+    public static function baseMime(string $mime): ?string
+    {
+        $base = strtolower(trim(explode(';', $mime)[0]));
+        return isset(self::MIMES[$base]) ? $base : null;
+    }
+
+    /** "video/mp4;codecs=avc1.42E01E,mp4a.40.2" → "avc1" (birinchi — video kodek). */
+    public static function videoCodec(string $mime): ?string
+    {
+        if (!preg_match('/codecs\s*=\s*"?([A-Za-z0-9]+)/i', $mime, $m)) {
+            return null;
+        }
+        $codec = strtolower($m[1]);
+        return in_array($codec, ['avc1', 'avc3', 'vp8', 'vp9', 'vp09', 'av01', 'hvc1', 'hev1', 'h264'], true) ? $codec : null;
+    }
+
+    /** Telegram ichida video sifatida ko'rinadimi (MP4 + H.264); aks holda fayl (hujjat) sifatida yuboriladi. */
+    public static function telegramPlayable(array $row): bool
+    {
+        return $row['mime'] === 'video/mp4' && in_array((string) ($row['codec'] ?? ''), ['avc1', 'avc3', 'h264'], true);
+    }
+
+    // ---------------------------------------------------------------------
+    // Bo'lak qabul qilish
+    // ---------------------------------------------------------------------
+
+    /**
+     * @param array $in seg, piece, section, content, audio, mime, final, duration_ms, width, height
+     * @param array|null $file $_FILES['data']
+     * @return array{ok:bool, expected:int, done?:bool}
+     */
+    public static function acceptPiece(array $a, array $mock, array $in, ?array $file): array
+    {
+        $settings = MockService::settings($mock)['proctoring'];
+        if ($settings['camera'] === 'off' && $settings['screen'] === 'off') {
+            throw new HttpError(403, 'rec_disabled', "Bu mockda video nazorat o'chirilgan.");
+        }
+        if ($a['status'] !== 'in_progress') {
+            $finished = (int) ($a['finished_at'] ?? 0);
+            if ($finished === 0 || time() - $finished > self::AFTER_FINISH_GRACE_SEC) {
+                throw new HttpError(409, 'rec_closed', 'Imtihon yakunlangan — yozuv qabul qilinmaydi.');
+            }
+        }
+
+        $seg = (string) ($in['seg'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9]{12,32}$/', $seg)) {
+            throw new HttpError(422, 'bad_segment', "Yozuv identifikatori noto'g'ri.");
+        }
+        $piece = filter_var($in['piece'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 100000]]);
+        if ($piece === false) {
+            throw new HttpError(422, 'bad_piece', "Bo'lak raqami noto'g'ri.");
+        }
+        $section = (string) ($in['section'] ?? '');
+        if (!in_array($section, AttemptService::sequence($a), true)) {
+            throw new HttpError(422, 'bad_section', "Bo'lim noto'g'ri.");
+        }
+        $final = in_array((string) ($in['final'] ?? '0'), ['1', 'true'], true);
+        $durationMs = max(0, min(3_600_000, (int) ($in['duration_ms'] ?? 0)));
+
+        [$tmp, $size] = self::checkUpload($file, $final);
+
+        $row = Db::one('SELECT * FROM recordings WHERE attempt_id = ? AND seg_key = ?' . Db::forUpdate(), [$a['id'], $seg]);
+        if ($row === null) {
+            if ($piece !== 0) {
+                throw new HttpError(409, 'piece_gap', "Yozuvning boshi yo'q.", ['expected' => 0]);
+            }
+            $mime = self::baseMime((string) ($in['mime'] ?? ''));
+            $content = (string) ($in['content'] ?? '');
+            if ($mime === null || !in_array($content, self::CONTENTS, true)) {
+                throw new HttpError(415, 'bad_type', "Video formati qo'llab-quvvatlanmaydi.");
+            }
+            if ($tmp === null) {
+                throw new HttpError(422, 'empty_piece', "Bo'lak bo'sh.");
+            }
+            $detected = (string) (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+            if (!in_array($detected, self::DETECTED, true)) {
+                throw new HttpError(415, 'bad_type', "Video formati qo'llab-quvvatlanmaydi ({$detected}).");
+            }
+            // Yangi yozuv boshlandi — shu urinishning ochiq qolgan eski yozuvlari (sahifa yangilangan, uzilgan) yopiladi.
+            foreach (Db::all("SELECT * FROM recordings WHERE attempt_id = ? AND status = 'recording'", [$a['id']]) as $open) {
+                self::finalize($open);
+            }
+            $now = Util::nowMs();
+            $id = Db::insert('recordings', [
+                'attempt_id' => $a['id'],
+                'seg_key' => $seg,
+                'section' => $section,
+                'content' => $content,
+                'has_audio' => in_array((string) ($in['audio'] ?? '0'), ['1', 'true'], true) ? 1 : 0,
+                'mime' => $mime,
+                'codec' => self::videoCodec((string) ($in['mime'] ?? '')),
+                'file' => 'a' . (int) $a['id'] . '/' . $seg . '.' . self::MIMES[$mime],
+                'size' => 0,
+                'pieces' => 0,
+                'started_ms' => $now - $durationMs,
+                'last_ms' => $now,
+                'duration_ms' => 0,
+                'width' => self::dim($in['width'] ?? null),
+                'height' => self::dim($in['height'] ?? null),
+                'status' => 'recording',
+                'created_at' => intdiv($now, 1000),
+            ]);
+            $row = Db::one('SELECT * FROM recordings WHERE id = ?', [$id]);
+        }
+
+        $expected = (int) $row['pieces'];
+        if ($piece < $expected) {
+            return ['ok' => true, 'expected' => $expected, 'duplicate' => true]; // Qayta yuborilgan — allaqachon bor.
+        }
+        if ($row['status'] !== 'recording') {
+            throw new HttpError(409, 'segment_closed', 'Bu yozuv yopilgan. Yangisi boshlanadi.');
+        }
+        if ($piece > $expected) {
+            throw new HttpError(409, 'piece_gap', "Yozuv bo'laklari tartibi buzildi.", ['expected' => $expected]);
+        }
+        if ((int) $row['size'] + $size > self::SEGMENT_LIMIT) {
+            throw new HttpError(413, 'segment_full', 'Yozuv fayli chegaraga yetdi. Yangisi boshlanadi.');
+        }
+
+        if ($tmp !== null) {
+            self::moveUpload($tmp, self::partPath($row, $piece));
+        }
+        $changes = [
+            'pieces' => $expected + 1,
+            'size' => (int) $row['size'] + $size,
+            'last_ms' => Util::nowMs(),
+            'duration_ms' => max((int) $row['duration_ms'], $durationMs),
+        ];
+        Db::update('recordings', $changes, 'id = ?', [$row['id']]);
+        if ($final) {
+            self::finalize(array_merge($row, $changes), true);
+        }
+        return ['ok' => true, 'expected' => $expected + 1, 'done' => $final];
+    }
+
+    private static function dim(mixed $value): ?int
+    {
+        $v = (int) $value;
+        return $v >= 16 && $v <= 8192 ? $v : null;
+    }
+
+    /** @return array{0:?string,1:int} vaqtinchalik fayl (bo'sh yakuniy bo'lak uchun null) va hajm */
+    private static function checkUpload(?array $file, bool $final): array
+    {
+        if ($file === null || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE || (int) ($file['size'] ?? 0) === 0) {
+            if ($final) {
+                return [null, 0]; // Yakunlash belgisi (oxirgi bo'lak allaqachon yuborilgan).
+            }
+            throw new HttpError(422, 'empty_piece', "Bo'lak bo'sh.");
+        }
+        $error = (int) $file['error'];
+        if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) {
+            throw new HttpError(413, 'too_large', "Bo'lak hajmi server chegarasidan katta.");
+        }
+        if ($error !== UPLOAD_ERR_OK || !is_file((string) ($file['tmp_name'] ?? ''))) {
+            throw new HttpError(422, 'upload_failed', "Bo'lak yuklanmadi.");
+        }
+        $size = (int) $file['size'];
+        if ($size > self::PIECE_LIMIT) {
+            throw new HttpError(413, 'too_large', "Bo'lak hajmi juda katta.");
+        }
+        return [(string) $file['tmp_name'], $size];
+    }
+
+    private static function moveUpload(string $tmp, string $dest): void
+    {
+        $dir = dirname($dest);
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new HttpError(500, 'store_failed', 'Yozuv papkasini yaratib bo\'lmadi.');
+        }
+        $ok = is_uploaded_file($tmp) ? move_uploaded_file($tmp, $dest) : (getenv('MOCK_TESTING') === '1' && copy($tmp, $dest));
+        if (!$ok) {
+            throw new HttpError(500, 'store_failed', "Yozuvni saqlab bo'lmadi.");
+        }
+    }
+
+    /**
+     * Bo'laklarni bitta faylga yig'ish va navbatga qo'yish. Uzilgan joydan keyingi bo'laklar tashlanadi.
+     */
+    public static function finalize(array $row, bool $complete = false): void
+    {
+        $dest = self::path((string) $row['file']);
+        $dir = dirname($dest);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $pieces = (int) $row['pieces'];
+        $written = 0;
+        $out = @fopen($dest . '.tmp', 'wb');
+        if ($out !== false) {
+            for ($i = 0; $i < $pieces; $i++) {
+                $part = self::partPath($row, $i);
+                $in = is_file($part) ? @fopen($part, 'rb') : false;
+                if ($in === false) {
+                    break;
+                }
+                $written += (int) stream_copy_to_stream($in, $out);
+                fclose($in);
+            }
+            fclose($out);
+        }
+        for ($i = 0; $i < $pieces; $i++) {
+            @unlink(self::partPath($row, $i));
+        }
+        if ($written > 0 && @rename($dest . '.tmp', $dest)) {
+            Db::update('recordings', [
+                'status' => 'ready',
+                'complete' => $complete ? 1 : 0,
+                'size' => $written,
+                'tg_next_at' => 0,
+            ], 'id = ?', [$row['id']]);
+            return;
+        }
+        @unlink($dest . '.tmp');
+        Db::update('recordings', ['status' => 'expired', 'file_deleted' => 1, 'size' => 0, 'tg_error' => "Yozuv bo'sh"], 'id = ?', [$row['id']]);
+    }
+
+    /** Uzoq vaqt bo'lak kelmagan yozuvlarni yopish (sahifa yopilgan, internet uzilgan). */
+    public static function closeStale(): int
+    {
+        $rows = Db::all("SELECT * FROM recordings WHERE status = 'recording' AND last_ms < ?", [Util::nowMs() - self::STALE_MS]);
+        foreach ($rows as $row) {
+            Db::tx(static function () use ($row): void {
+                $fresh = Db::one("SELECT * FROM recordings WHERE id = ? AND status = 'recording'" . Db::forUpdate(), [$row['id']]);
+                if ($fresh !== null) {
+                    self::finalize($fresh);
+                }
+            });
+        }
+        return count($rows);
+    }
+
+    // ---------------------------------------------------------------------
+    // Saqlash muddati va o'chirish
+    // ---------------------------------------------------------------------
+
+    /** Muddati o'tgan fayllarni o'chirish (sozlamalar: rec_keep_days, rec_speaking_keep_days). */
+    public static function expire(): int
+    {
+        $count = 0;
+        $now = time();
+        $keep = Settings::int('rec_keep_days');
+        if ($keep > 0) {
+            $rows = Db::all(
+                "SELECT * FROM recordings WHERE file_deleted = 0 AND section <> 'S' AND status IN ('ready', 'failed') AND created_at < ?",
+                [$now - $keep * 86400]
+            );
+            foreach ($rows as $row) {
+                self::deleteFile($row, 'expired');
+                $count++;
+            }
+        }
+        $keepS = Settings::int('rec_speaking_keep_days');
+        if ($keepS > 0) {
+            $rows = Db::all(
+                "SELECT * FROM recordings WHERE file_deleted = 0 AND section = 'S' AND status IN ('ready', 'failed', 'sent') AND created_at < ?",
+                [$now - $keepS * 86400]
+            );
+            foreach ($rows as $row) {
+                self::deleteFile($row, $row['status'] === 'sent' ? 'sent' : 'expired');
+                $count++;
+            }
+        }
+        return $count;
+    }
+
+    private static function deleteFile(array $row, string $status): void
+    {
+        @unlink(self::path((string) $row['file']));
+        Db::update('recordings', ['file_deleted' => 1, 'status' => $status], 'id = ?', [$row['id']]);
+    }
+
+    /** Urinish(lar) o'chirilganda: barcha video fayllar (bo'laklar bilan). Baza qatorlari CASCADE bilan o'chadi. */
+    public static function deleteForAttempts(array $attemptIds): void
+    {
+        foreach ($attemptIds as $id) {
+            $dir = self::root() . '/a' . (int) $id;
+            if (is_dir($dir)) {
+                foreach (glob($dir . '/*') ?: [] as $file) {
+                    @unlink($file);
+                }
+                @rmdir($dir);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Telegram navbati
+    // ---------------------------------------------------------------------
+
+    private static function statusFile(): string
+    {
+        return self::root() . '/queue.json';
+    }
+
+    public static function queueStatus(): array
+    {
+        $raw = is_file(self::statusFile()) ? (string) @file_get_contents(self::statusFile()) : '';
+        $data = json_decode($raw, true);
+        return is_array($data) ? $data : [];
+    }
+
+    private static function saveStatus(array $changes): void
+    {
+        $data = array_merge(self::queueStatus(), $changes);
+        if (!is_dir(self::root())) {
+            @mkdir(self::root(), 0775, true);
+        }
+        @file_put_contents(self::statusFile(), json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    }
+
+    /**
+     * Navbatni ishlatish: uzilgan yozuvlarni yopish, eskilarini o'chirish va tayyorlarini Telegram'ga yuborish.
+     * Bir vaqtda faqat bitta jarayon ishlaydi (cron va admin tugmasi bir-biriga xalaqit bermaydi).
+     *
+     * @return array{busy?:bool, closed:int, expired:int, sent:int, failed:int, configured:bool, error?:string}
+     */
+    public static function process(float $budgetSec = 50.0, ?callable $sleep = null): array
+    {
+        $sleep ??= static fn (float $s) => usleep((int) ($s * 1_000_000));
+        if (!is_dir(self::root()) && !@mkdir(self::root(), 0775, true) && !is_dir(self::root())) {
+            return ['closed' => 0, 'expired' => 0, 'sent' => 0, 'failed' => 0, 'configured' => Telegram::configured(), 'error' => "storage/recordings papkasini yaratib bo'lmadi."];
+        }
+        $lock = @fopen(self::root() . '/.queue.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+            return ['busy' => true, 'closed' => 0, 'expired' => 0, 'sent' => 0, 'failed' => 0, 'configured' => Telegram::configured()];
+        }
+        $started = microtime(true);
+        $result = ['closed' => 0, 'expired' => 0, 'sent' => 0, 'failed' => 0, 'configured' => Telegram::configured()];
+        try {
+            self::saveStatus(['last_run_at' => time()]);
+            $result['closed'] = self::closeStale();
+            $result['expired'] = self::expire();
+            if (!$result['configured']) {
+                return $result;
+            }
+            $status = self::queueStatus();
+            if ((int) ($status['paused_until'] ?? 0) > time()) {
+                $result['error'] = 'Telegram cheklovi: ' . ((int) $status['paused_until'] - time()) . ' soniya kutilmoqda.';
+                return $result;
+            }
+            $lastSend = 0.0;
+            while (microtime(true) - $started < $budgetSec) {
+                $row = Db::one(
+                    "SELECT * FROM recordings WHERE status = 'ready' AND file_deleted = 0 AND tg_next_at <= ? ORDER BY id LIMIT 1",
+                    [time()]
+                );
+                if ($row === null) {
+                    break;
+                }
+                $wait = $lastSend + self::SEND_SPACING_SEC - microtime(true);
+                if ($wait > 0) {
+                    if (microtime(true) + $wait - $started >= $budgetSec) {
+                        break;
+                    }
+                    $sleep($wait);
+                }
+                $lastSend = microtime(true);
+                $outcome = self::sendOne($row);
+                if ($outcome === 'sent') {
+                    $result['sent']++;
+                } else {
+                    $result['failed']++;
+                    if ($outcome === 'pause') {
+                        break;
+                    }
+                }
+            }
+            return $result;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    /** @return 'sent'|'retry'|'pause' */
+    private static function sendOne(array $row): string
+    {
+        $path = self::path((string) $row['file']);
+        if (!is_file($path)) {
+            Db::update('recordings', ['status' => 'expired', 'file_deleted' => 1, 'tg_error' => 'Fayl topilmadi'], 'id = ?', [$row['id']]);
+            return 'retry';
+        }
+        $info = Db::one(
+            'SELECT a.id, a.attempt_no, a.anon_code, a.meta_json, u.full_name, m.title
+             FROM attempts a JOIN users u ON u.id = a.user_id JOIN mocks m ON m.id = a.mock_id WHERE a.id = ?',
+            [$row['attempt_id']]
+        );
+        if ($info === null) {
+            return 'retry';
+        }
+        $chat = Telegram::chatFor((string) $row['section']);
+        try {
+            $messageId = Telegram::sendVideoFile(
+                $chat,
+                $path,
+                (string) $row['mime'],
+                self::telegramPlayable($row),
+                self::fileName($row, $info),
+                self::caption($row, $info),
+                (int) round((int) $row['duration_ms'] / 1000),
+                $row['width'] !== null ? (int) $row['width'] : null,
+                $row['height'] !== null ? (int) $row['height'] : null
+            );
+        } catch (TelegramError $e) {
+            $tries = (int) $row['tg_tries'] + 1;
+            $retryAfter = $e->retryAfter;
+            $network = $e->apiCode === 0;
+            $delay = $retryAfter > 0 ? $retryAfter + 1 : min(3600, 30 * (2 ** min($tries, 7)));
+            Db::update('recordings', [
+                'tg_tries' => $tries,
+                'tg_next_at' => time() + $delay,
+                'tg_error' => mb_substr($e->getMessage(), 0, 300),
+                // Ulanish xatosi (Telegram bloklangan, internet yo'q) — navbatda qoladi; Telegram rad etsa — ko'p
+                // urinishdan keyin "xato" bo'ladi (admin qayta yuborishi mumkin).
+                'status' => !$network && $retryAfter === 0 && $tries >= self::MAX_TRIES ? 'failed' : 'ready',
+            ], 'id = ?', [$row['id']]);
+            self::saveStatus(['last_error' => mb_substr($e->getMessage(), 0, 300), 'last_error_at' => time()]
+                + ($retryAfter > 0 ? ['paused_until' => time() + $retryAfter] : []));
+            return $retryAfter > 0 || $network ? 'pause' : 'retry';
+        }
+        $changes = [
+            'status' => 'sent',
+            'tg_chat' => $chat,
+            'tg_message_id' => $messageId,
+            'tg_error' => null,
+            'sent_at' => time(),
+        ];
+        // Yozma qism videolari faqat Telegram'da qoladi; Speaking videolari serverda ham saqlanadi.
+        if ($row['section'] !== 'S') {
+            @unlink($path);
+            $changes['file_deleted'] = 1;
+        }
+        Db::update('recordings', $changes, 'id = ?', [$row['id']]);
+        $status = self::queueStatus();
+        self::saveStatus(['last_sent_at' => time(), 'sent_total' => (int) ($status['sent_total'] ?? 0) + 1]);
+        return 'sent';
+    }
+
+    public static function fileName(array $row, array $info): string
+    {
+        $date = date('Ymd-Hi', intdiv((int) $row['started_ms'], 1000));
+        $ext = self::MIMES[(string) $row['mime']] ?? 'bin';
+        return sprintf('%s_%s_%s_%s.%s', $info['anon_code'], $date, $row['section'], substr((string) $row['seg_key'], 0, 6), $ext);
+    }
+
+    /** Kanal xabari matni (oddiy matn, Telegram 1024 belgigacha). */
+    public static function caption(array $row, array $info): string
+    {
+        $names = ['L' => 'Listening', 'R' => 'Reading', 'W' => 'Writing', 'S' => 'Speaking'];
+        $index = 1 + (int) Db::val(
+            'SELECT COUNT(*) FROM recordings WHERE attempt_id = ? AND section = ? AND started_ms < ?',
+            [$row['attempt_id'], $row['section'], $row['started_ms']]
+        );
+        $from = intdiv((int) $row['started_ms'], 1000);
+        $to = $from + intdiv((int) $row['duration_ms'], 1000);
+        $contents = ['screen+camera' => 'ekran + kamera', 'screen' => 'ekran (kamerasiz)', 'camera' => 'kamera (ekransiz)'];
+        $proctor = (array) (Util::decode($info['meta_json'] ?? '{}')['proctor'] ?? []);
+        $flags = [];
+        if (!empty($proctor['camera_missing'])) {
+            $flags[] = "kamera ishlamagan";
+        }
+        if (!empty($proctor['screen_missing'])) {
+            $flags[] = "ekran ulashilmagan";
+        }
+        if ((int) ($proctor['screens'] ?? 1) > 1) {
+            $flags[] = $proctor['screens'] . ' ta monitor';
+        }
+        $lines = [
+            '🎥 ' . $info['title'],
+            '👤 ' . $info['full_name'] . ' · kod ' . $info['anon_code'] . ' · ' . $info['attempt_no'] . '-urinish',
+            '📘 ' . ($names[$row['section']] ?? $row['section']) . ' · ' . $index . '-qism · '
+                . date('d.m.Y H:i', $from) . '–' . date('H:i', $to)
+                . ($row['complete'] ? '' : " · to'liq emas"),
+            '🖥 ' . ($contents[$row['content']] ?? $row['content']) . ($row['has_audio'] ? ' + ovoz' : ''),
+        ];
+        if ($flags !== []) {
+            $lines[] = '⚠️ ' . implode(', ', $flags);
+        }
+        return implode("\n", $lines);
+    }
+
+    // ---------------------------------------------------------------------
+    // Admin uchun
+    // ---------------------------------------------------------------------
+
+    public static function forAttempt(int $attemptId): array
+    {
+        $rows = Db::all(
+            'SELECT id, seg_key, section, content, has_audio, mime, codec, size, pieces, started_ms, duration_ms, status, complete,
+                    file_deleted, tg_chat, tg_message_id, tg_tries, tg_error, sent_at
+             FROM recordings WHERE attempt_id = ? ORDER BY started_ms, id',
+            [$attemptId]
+        );
+        foreach ($rows as &$row) {
+            $row['tg_link'] = Telegram::messageLink($row['tg_chat'], $row['tg_message_id'] !== null ? (int) $row['tg_message_id'] : null);
+            $row['playable'] = !(int) $row['file_deleted'] && $row['status'] !== 'recording';
+            unset($row['tg_chat']);
+        }
+        return $rows;
+    }
+
+    public static function summary(): array
+    {
+        $counts = [];
+        foreach (Db::all('SELECT status, COUNT(*) AS n, SUM(CASE WHEN file_deleted = 0 THEN size ELSE 0 END) AS bytes FROM recordings GROUP BY status') as $r) {
+            $counts[$r['status']] = ['count' => (int) $r['n'], 'bytes' => (int) $r['bytes']];
+        }
+        $disk = 0;
+        foreach ($counts as $c) {
+            $disk += $c['bytes'];
+        }
+        $s = Telegram::settings();
+        $host = parse_url($s['api_base'], PHP_URL_HOST) ?: $s['api_base'];
+        return [
+            'telegram' => [
+                'configured' => Telegram::configured(),
+                'token' => Telegram::maskedToken(),
+                'chat' => $s['chat'],
+                'speaking_chat' => $s['speaking_chat'],
+                'api_host' => $host,
+                'relay' => $host !== 'api.telegram.org',
+                'proxy' => $s['proxy'] !== '',
+                'curl' => function_exists('curl_init'),
+            ],
+            'counts' => $counts,
+            'disk_bytes' => $disk,
+            'queue' => self::queueStatus(),
+            'now' => time(),
+        ];
+    }
+}

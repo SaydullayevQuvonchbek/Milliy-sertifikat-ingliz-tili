@@ -41,6 +41,8 @@ function defaultSettings() {
     grading: { raters: 2, diff_w: 3, diff_s: 3 },
     speaking: { mode: 'separate', from: null, to: null },
     results: 'publish',
+    proctoring: { camera: 'optional', screen: 'optional' },
+    flow: { early_finish: true, speaking_skip: false },
   };
 }
 
@@ -235,6 +237,9 @@ export class MockEditor {
     const st = this.state;
     const s = st.settings;
     const onChange = () => this.changed();
+    const defaults = defaultSettings();
+    s.proctoring = { ...defaults.proctoring, ...(s.proctoring || {}) };
+    s.flow = { ...defaults.flow, ...(s.flow || {}) };
 
     const sections = h('div', { class: 'check-row' }, ['L', 'R', 'W', 'S'].map((code) => checkbox(
       { L: 'Listening', R: 'Reading', W: 'Writing', S: 'Speaking' }[code],
@@ -281,7 +286,10 @@ export class MockEditor {
           field('Writing (daqiqa)', minutes(s.times, 'writing')),
           field("Bo'limlar orasidagi tanaffus (soniya)", numberInput(s, 'break_sec', { min: 10, max: 900, onChange }))
         ),
-        h('p', { class: 'muted small', text: "Listening davomiyligi audio yozuvlar, ko'rib chiqish va pauzalardan avtomatik hisoblanadi." })
+        h('p', { class: 'muted small', text: "Listening davomiyligi audio yozuvlar, ko'rib chiqish va pauzalardan avtomatik hisoblanadi." }),
+        checkbox("Bo'limni vaqt tugamasdan yakunlashga ruxsat (Listening, Reading, Writing)", s.flow.early_finish, (on) => { s.flow.early_finish = on; onChange(); }),
+        checkbox("Speaking: tayyorlanishni o'tkazib yuborish va javobni erta tugatib keyingi savolga o'tish", s.flow.speaking_skip, (on) => { s.flow.speaking_skip = on; onChange(); }),
+        h('p', { class: 'muted small', text: "Birinchisi o'chirilsa, bo'lim faqat vaqt tugaganda yopiladi (rasmiy imtihondagidek). Listening'ni baribir audio tugagandan keyingina yakunlash mumkin. Ikkinchisi yoqilsa, o'quvchi javobini aytib bo'lgach vaqt tugashini kutmaydi." })
       ),
       h('div', { class: 'card' },
         h('h3', { text: 'Imtihon xavfsizligi' }),
@@ -293,6 +301,22 @@ export class MockEditor {
         checkbox('Telefon va planshetdan ishlashga ruxsat', s.lockdown.allow_mobile, (on) => { s.lockdown.allow_mobile = on; onChange(); }),
         checkbox('Faqat Safe Exam Browser orqali (to\'liq qulf)', s.lockdown.require_seb, (on) => { s.lockdown.require_seb = on; onChange(); }),
         h('p', { class: 'muted small', text: "Brauzerda oynadan chiqish, to'liq ekrandan chiqish, sahifani uzoq yopish va ikkinchi oyna qoidabuzarlik hisoblanadi. Nusxa olish, joylashtirish va yorliqlar doim o'chirilgan." })
+      ),
+      h('div', { class: 'card' },
+        h('h3', { text: 'Video nazorat (kamera va ekran)' }),
+        h('div', { class: 'row' },
+          field('Kamera', select(s.proctoring, 'camera', [
+            ['off', "O'chiq"],
+            ['optional', "Bo'lsa yoziladi"],
+            ['required', 'Majburiy'],
+          ]), "Bo'lsa yoziladi — kamerasiz ham topshiradi, belgi qo'yiladi"),
+          field('Ekran yozuvi (yozma qism)', select(s.proctoring, 'screen', [
+            ['off', "O'chiq"],
+            ['optional', "Bo'lsa yoziladi"],
+            ['required', 'Majburiy'],
+          ]), "Majburiy — ekran ulashilmasa boshlab bo'lmaydi")
+        ),
+        h('p', { class: 'muted small', text: "Listening, Reading va Writing'da ekran va kamera bitta videoga yoziladi, Speaking'da kamera va ovoz. Videolar 10 daqiqalik fayllarda Telegram kanalga yuboriladi (Sozlamalar → Video yozuvlar va Telegram); yozma qism videolari yuborilgach serverdan o'chadi, Speaking videolari serverda ham qoladi. \"Majburiy\" bo'lsa, ekran ulashishni to'xtatish yoki kamerani o'chirish qoidabuzarlik hisoblanadi." })
       ),
       h('div', { class: 'card' },
         h('h3', { text: 'Writing va Speaking tekshiruvi' }),

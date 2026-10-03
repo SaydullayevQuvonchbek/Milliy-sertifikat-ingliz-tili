@@ -3,9 +3,11 @@
 //
 // Tekshiriladi: ro'yxatdan o'tish, mock boshlash, to'liq ekran, Listening audiosi va avtomatik o'tish,
 // qoidabuzarlik oynasi, sahifani yangilaganda javoblar saqlanishi, belgilash (highlight), Writing so'z
-// hisoblagichi, Speaking yozuvi, admin natijalari, urinishlar soni va mockni muzlatish.
+// hisoblagichi, Speaking yozuvi, admin natijalari, urinishlar soni va mockni muzlatish;
+// video nazorat (soxta kamera va ekran): bo'laklar serverga, fayllar yig'iladi, soxta Telegram serveriga yuboriladi.
 
 import { execFileSync, spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -32,11 +34,33 @@ const dbConfig = process.env.MOCK_E2E_DB === 'mysql'
     password: process.env.MOCK_TEST_MYSQL_PASS || 'mlmock',
   }).replace(/\{/g, '[').replace(/\}/g, ']').replace(/":/g, '"=>')}]`
   : `['driver' => 'sqlite', 'sqlite_path' => ${JSON.stringify(path.join(dir, 'db.sqlite'))}]`;
+// Soxta Telegram Bot API: yuborilgan videolarni yozib boradi.
+const telegram = [];
+const tgServer = createServer((req, res) => {
+  const chunks = [];
+  req.on('data', (c) => chunks.push(c));
+  req.on('end', () => {
+    const body = Buffer.concat(chunks);
+    const text = body.toString('latin1');
+    const field = (name) => {
+      const m = text.match(new RegExp(`name="${name}"\\r\\n\\r\\n([\\s\\S]*?)\\r\\n--`));
+      return m ? Buffer.from(m[1], 'latin1').toString('utf8') : null;
+    };
+    const method = req.url.split('/').pop();
+    telegram.push({ url: req.url, method, bytes: body.length, chat: field('chat_id'), caption: field('caption'), text: field('text') });
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ok: true, result: { message_id: telegram.length } }));
+  });
+});
+await new Promise((r) => tgServer.listen(0, '127.0.0.1', r));
+const tgBase = `http://127.0.0.1:${tgServer.address().port}`;
+
 writeFileSync(config, `<?php return [
   'db' => ${dbConfig},
   'storage_path' => ${JSON.stringify(dir)},
   'secure_cookies' => false,
   'debug' => true,
+  'telegram' => ['bot_token' => '111:E2E', 'chat_id' => '-100555', 'api_base' => ${JSON.stringify(tgBase)}],
 ];`);
 const env = { ...process.env, MOCK_CONFIG: config, MOCK_TESTING: '1' };
 execFileSync('php', ['bin/install.php', '--admin-login=admin', '--admin-password=admin12345'], { cwd: root, env, stdio: 'ignore' });
@@ -68,6 +92,12 @@ async function step(name, fn) {
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
+// MOCK_E2E_SHOTS=/papka — muhim ekranlarning rasmlari (dizaynni ko'rib chiqish uchun).
+async function shot(p, name) {
+  if (!process.env.MOCK_E2E_SHOTS) return;
+  await p.waitForTimeout(250);
+  await p.screenshot({ path: path.join(process.env.MOCK_E2E_SHOTS, `${name}.png`) });
+}
 
 function wav(seconds) {
   const rate = 8000;
@@ -91,7 +121,7 @@ function wav(seconds) {
 
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
-  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--auto-select-desktop-capture-source=Entire screen'],
 });
 const pageErrors = [];
 
@@ -177,12 +207,21 @@ try {
     assert(await page.locator('.mock-card', { hasText: 'Urinishlar: 0/2' }).count() === 1, 'urinishlar soni ko\'rinmadi');
   });
 
-  await step('qoidalar: audio oldindan yuklanadi, boshlash to\'liq ekranga o\'tkazadi', async () => {
+  await step('qoidalar: audio oldindan yuklanadi, kamera va ekran yoqiladi, boshlash to\'liq ekranga o\'tkazadi', async () => {
     await page.locator('.mock-card', { hasText: 'E2E mock' }).getByRole('button', { name: 'Boshlash' }).click();
     await page.locator('.rules-card').waitFor();
     await page.locator('.preload.ok').waitFor({ timeout: 15000 });
     await page.getByLabel("Qoidalar bilan tanishdim va ularga roziman").check();
-    await page.getByRole('button', { name: "Listening'ni boshlash" }).click();
+    const start = page.getByRole('button', { name: "Listening'ni boshlash" });
+    assert(await start.isDisabled(), 'kamera/ekran so\'ralmasdan boshlash tugmasi ochiq');
+    await page.locator('.proctor-check').scrollIntoViewIfNeeded();
+    await shot(page, '01-gate-before');
+    await page.getByRole('button', { name: 'Kamerani yoqish' }).click();
+    await page.locator('.proctor-status.ok', { hasText: 'Kamera ishlayapti' }).waitFor();
+    await page.getByRole('button', { name: 'Ekranni ulashish' }).click();
+    await page.locator('.proctor-status.ok', { hasText: 'Ekran ulashildi' }).waitFor();
+    await shot(page, '02-gate-ready');
+    await start.click();
     await page.locator('.exam .eh-section', { hasText: 'Listening' }).waitFor();
     const fs = await page.evaluate(() => Boolean(document.fullscreenElement));
     assert(fs, "to'liq ekran yoqilmadi");
@@ -193,6 +232,8 @@ try {
     await page.locator('#q-L-2 input').fill('seven');
     await page.waitForFunction(() => document.querySelectorAll('.np-q.answered').length === 2);
     await page.locator('.listen-status .ls-text', { hasText: /Eshittirilmoqda|ko'rib chiqing|Pauza|Boshlanishiga/ }).waitFor();
+    await page.locator('.rec-badge', { hasText: 'Yozilmoqda' }).waitFor();
+    await shot(page, '03-listening-rec-badge');
   });
 
   await step("to'liq ekrandan chiqish qoidabuzarlik sifatida bloklanadi", async () => {
@@ -229,7 +270,12 @@ try {
     await page.locator('.save-status.save-saved').waitFor({ timeout: 10000 });
 
     await page.reload();
-    await page.getByRole('button', { name: 'Davom etish' }).click();
+    // Sahifa yangilangach kamera va ekran qayta yoqiladi (brauzer qoidasi).
+    const resume = page.getByRole('button', { name: 'Davom etish' });
+    await page.getByRole('button', { name: 'Kamerani yoqish' }).click();
+    await page.getByRole('button', { name: 'Ekranni ulashish' }).click();
+    await page.locator('.proctor-status.ok', { hasText: 'Ekran ulashildi' }).waitFor();
+    await resume.click();
     await page.locator('.exam .eh-section', { hasText: 'Reading' }).waitFor();
     assert(await page.locator('#q-R-1 input[value="TRUE"]').isChecked(), 'TRUE javobi tiklanmadi');
     assert((await page.locator('#q-R-2 input').inputValue()) === 'lead', 'gap-fill javobi tiklanmadi');
@@ -242,6 +288,20 @@ try {
     await page.locator('.break-card').waitFor();
     await page.getByRole('button', { name: "Writing bo'limini boshlash" }).click();
     await page.locator('.writing-area').waitFor();
+  });
+
+  await step("ekran ulashish to'xtasa ogohlantirish chiqadi va qayta ulanadi", async () => {
+    // Brauzerning "Ulashishni to'xtatish" tugmasi o'rniga: ekran trekiga 'ended' hodisasi.
+    await page.evaluate(() => {
+      const videos = Array.from(document.querySelectorAll('.proctor-sources video'));
+      const screen = videos.map((v) => v.srcObject && v.srcObject.getVideoTracks()[0]).find((t) => t && t.getSettings().displaySurface === 'monitor');
+      screen.dispatchEvent(new Event('ended'));
+    });
+    await page.locator('.proctor-banner', { hasText: "Ekran ulashish to'xtatildi" }).waitFor();
+    await shot(page, '04-screen-stopped-banner');
+    await page.locator('.proctor-banner').getByRole('button', { name: 'Ekranni qayta ulashish' }).click();
+    await page.locator('.proctor-banner').waitFor({ state: 'detached' });
+    assert(await page.locator('.lock-overlay').count() === 0, 'qayta ulashda qoidabuzarlik oynasi chiqmasligi kerak');
   });
 
   await step("Writing: so'z hisoblagichi, joylashtirish (paste) bloklanadi", async () => {
@@ -278,6 +338,70 @@ try {
     const detail = await call('GET', `admin/attempts/${a.id}`);
     assert(detail.speaking.length === 1, 'Speaking yozuvi saqlanmadi');
     assert(detail.events.some((e) => e.type === 'fullscreen_exit'), 'hodisalar jurnali to\'liq emas');
+    assert(detail.meta.proctor && detail.meta.proctor.camera === 'ok', 'kamera holati: ' + JSON.stringify(detail.meta.proctor));
+  });
+
+  await step('video nazorat: har bo\'lim yozuvi serverga keldi va Telegram\'ga yuborildi', async () => {
+    let detail;
+    for (let i = 0; i < 40; i += 1) {
+      const res = await call('GET', `admin/mocks/${mockId}/attempts`);
+      detail = await call('GET', `admin/attempts/${res.attempts[0].id}`);
+      if (['L', 'R', 'W', 'S'].every((c) => detail.recordings.some((r) => r.section === c && r.status !== 'recording'))) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const recs = detail.recordings;
+    for (const c of ['L', 'R', 'W', 'S']) assert(recs.some((r) => r.section === c), `${c} bo'limi yozuvi yo'q: ` + JSON.stringify(recs.map((r) => [r.section, r.status, r.size])));
+    const brief = JSON.stringify(recs.map((r) => [r.section, r.status, r.size, r.pieces, r.duration_ms, r.complete]));
+    assert(recs.every((r) => r.size > 0 && Number(r.complete) === 1), "bo'sh yoki uzilgan yozuv bor: " + brief);
+    assert(recs.filter((r) => r.section === 'L' || r.section === 'S').every((r) => r.size > 20000 && r.duration_ms > 3000), 'Listening/Speaking yozuvi juda qisqa: ' + brief);
+    // Yozma qism: ekran + kamera (Writing tugab Speaking oynasi ochilganda ekran ulashish to'xtaydi — u yog'i faqat kamera).
+    for (const c of ['L', 'R', 'W']) assert(recs.some((r) => r.section === c && r.content === 'screen+camera'), `${c}: ekran + kamera yozuvi yo'q: ` + brief);
+    assert(recs.filter((r) => r.section === 'S').every((r) => r.content === 'camera' && Number(r.has_audio) === 1), 'Speaking: kamera + ovoz');
+    // Faylni yuklab, video ekanini tekshiramiz (WebM yoki MP4 boshi).
+    const file = await admin.fetch(`${base}/api/admin/recordings/${recs[0].id}/file`);
+    const head = (await file.body()).subarray(0, 12);
+    const webm = head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3;
+    const mp4 = head.subarray(4, 8).toString('latin1') === 'ftyp';
+    assert(file.ok() && (webm || mp4), 'yozuv fayli video emas: ' + head.toString('hex'));
+
+    const run = await call('POST', 'admin/recordings/run');
+    assert(run.result.sent === recs.length, 'Telegram\'ga yuborildi: ' + JSON.stringify(run.result));
+    const sends = telegram.filter((t) => t.method === 'sendVideo' || t.method === 'sendDocument');
+    assert(sends.length === recs.length && sends.every((t) => t.url.startsWith('/bot111:E2E/') && t.chat === '-100555'), 'soxta Telegram so\'rovlari: ' + JSON.stringify(sends.map((t) => t.url)));
+    assert(sends.every((t) => t.caption && t.caption.includes('Sinov Talaba')), 'yozuv matnida o\'quvchi ismi yo\'q');
+    if (process.env.MOCK_E2E_SHOTS) {
+      const ap = await adminCtx.newPage();
+      await ap.setViewportSize({ width: 1366, height: 900 });
+      await ap.goto(`${base}/admin/#/attempts/${detail.attempt.id}`);
+      await ap.locator('h3', { hasText: 'Video yozuvlar' }).scrollIntoViewIfNeeded();
+      await shot(ap, '05-admin-attempt-videos-before-send');
+      await ap.close();
+    }
+    const after = await call('GET', `admin/attempts/${detail.attempt.id}`);
+    assert(after.recordings.every((r) => r.status === 'sent'), 'holat sent emas');
+    assert(after.recordings.filter((r) => r.section !== 'S').every((r) => !r.playable), 'yozma qism videosi serverda qolgan');
+    assert(after.recordings.filter((r) => r.section === 'S').every((r) => r.playable), 'Speaking videosi serverda saqlanishi kerak');
+    const list = await call('GET', `admin/mocks/${mockId}/attempts`);
+    assert(list.attempts[0].videos === recs.length, 'natijalar jadvalida videolar soni');
+    if (process.env.MOCK_E2E_SHOTS) {
+      const ap = await adminCtx.newPage();
+      await ap.setViewportSize({ width: 1366, height: 900 });
+      await ap.goto(`${base}/admin/#/attempts/${detail.attempt.id}`);
+      await ap.locator('h3', { hasText: 'Video yozuvlar' }).scrollIntoViewIfNeeded();
+      await shot(ap, '06-admin-attempt-videos-sent');
+      await ap.goto(`${base}/admin/#/mocks/${mockId}/results`);
+      await ap.locator('.table').first().waitFor();
+      await shot(ap, '07-admin-results-video-column');
+      await ap.goto(`${base}/admin/#/settings`);
+      await ap.locator('h3', { hasText: 'Video yozuvlar va Telegram' }).waitFor();
+      await ap.locator('.tg-status').waitFor();
+      await ap.locator('h3', { hasText: 'Video yozuvlar va Telegram' }).scrollIntoViewIfNeeded();
+      await shot(ap, '08-admin-settings-telegram');
+      await ap.goto(`${base}/admin/#/mocks/${mockId}`);
+      await ap.locator('h3', { hasText: 'Video nazorat (kamera va ekran)' }).scrollIntoViewIfNeeded();
+      await shot(ap, '09-admin-mock-proctoring-settings');
+      await ap.close();
+    }
   });
 
   await step("bosh sahifada urinishlar 1/2, muzlatilgan mock yashiriladi", async () => {
@@ -353,6 +477,70 @@ try {
     assert(!text.includes('lead') && !text.includes('seven'), "kalit o'quvchiga ko'rsatilmasligi kerak");
   });
 
+  await step("2-mock: kamera majburiy, vaqtdan oldin yakunlash o'chiq, Speaking'da keyingi savolga o'tish", async () => {
+    const created = await call('POST', 'admin/mocks', { title: 'Flow mock', max_attempts: 1 });
+    const id2 = created.mock.id;
+    const source = {
+      reading: {
+        parts: [{
+          title: 'Part 1', instructions: 'Read.', passage: { title: 'T', text: 'Short text about rivers and lakes.' },
+          blocks: [{ type: 'tfng', n: 1, prompt: 'Rivers are mentioned.', answer: 'TRUE' }],
+        }],
+      },
+      speaking: { parts: [{ id: '1.1', title: 'Part 1.1', questions: [
+        { no: 1, text: 'First question.', prep_sec: 30, answer_sec: 30 },
+        { no: 2, text: 'Second question.', prep_sec: 30, answer_sec: 30 },
+      ] }] },
+    };
+    const settings = {
+      sections: ['R', 'S'], times: { reading: 60 }, break_sec: 10,
+      lockdown: { fullscreen: true, max_violations: 5, action: 'terminate' },
+      speaking: { mode: 'same_session' }, results: 'instant',
+      proctoring: { camera: 'required', screen: 'off' },
+      flow: { early_finish: false, speaking_skip: true },
+    };
+    await call('PUT', `admin/mocks/${id2}`, { title: 'Flow mock', max_attempts: 1, source, settings });
+    await call('POST', `admin/mocks/${id2}/status`, { status: 'active' });
+
+    await page.goto(`${base}/#/`);
+    await page.locator('.mock-card', { hasText: 'Flow mock' }).getByRole('button', { name: 'Boshlash' }).click();
+    await page.locator('.rules-card').waitFor();
+    await page.getByLabel("Qoidalar bilan tanishdim va ularga roziman").check();
+    const start = page.getByRole('button', { name: "Reading bo'limini boshlash" });
+    assert(await page.getByRole('button', { name: 'Ekranni ulashish' }).count() === 0, "ekran o'chiq — so'ralmasligi kerak");
+    assert(await start.isDisabled(), 'kamera majburiy — kamerasiz boshlanmasligi kerak');
+    await page.getByRole('button', { name: 'Kamerani yoqish' }).click();
+    await page.locator('.proctor-status.ok').waitFor();
+    await start.click();
+    await page.locator('.exam .eh-section', { hasText: 'Reading' }).waitFor();
+    assert(await page.locator('.btn-finish').isHidden(), "vaqt tugamasdan yakunlash tugmasi ko'rinmasligi kerak");
+    await page.locator('#q-R-1 .opt', { hasText: 'TRUE' }).click();
+    // Vaqt tugaganda o'zi yakunlanadi, keyin Speaking (kamera allaqachon yoqilgan).
+    await page.getByRole('button', { name: 'Mikrofonga ruxsat berish' }).click({ timeout: 90000 });
+    await page.locator('.mic-status.ok').waitFor();
+    await page.getByRole('button', { name: "Speaking'ni boshlash" }).click();
+    const t0 = Date.now();
+    for (const text of ['First question.', 'Second question.']) {
+      await page.locator('.speaking-card .sq-text', { hasText: text }).waitFor();
+      if (text === 'First question.') await shot(page, '10-speaking-skip-prep');
+      await page.getByRole('button', { name: 'Javob berishni boshlash' }).click();
+      await page.getByRole('button', { name: 'Javobni yakunlash' }).waitFor({ timeout: 10000 });
+      if (text === 'First question.') await shot(page, '11-speaking-finish-answer');
+      await page.getByRole('button', { name: 'Javobni yakunlash' }).click({ timeout: 10000 });
+    }
+    await page.locator('.final-card', { hasText: 'Imtihon yakunlandi' }).waitFor({ timeout: 30000 });
+    assert(Date.now() - t0 < 40000, "javobni erta tugatish ishlamadi (savollar vaqtini kutdi)");
+    await page.locator('.rec-upload.ok', { hasText: 'Video yozuv serverga yuborildi' }).waitFor({ timeout: 20000 });
+    await shot(page, '12-final-upload-done');
+    const res = await call('GET', `admin/mocks/${id2}/attempts`);
+    const a = res.attempts[0];
+    const detail = await call('GET', `admin/attempts/${a.id}`);
+    assert(detail.speaking.length === 2, 'Speaking javoblari: ' + detail.speaking.length);
+    assert(detail.speaking.every((x) => x.duration < 20), 'javoblar erta tugatilmagan: ' + JSON.stringify(detail.speaking));
+    const r = detail.meta.sections.R;
+    assert(r.finished_ms - r.started_ms >= 59000, "Reading vaqt tugaganda yopilishi kerak: " + JSON.stringify(r));
+  });
+
   await step("o'quvchi parolini o'zi almashtiradi va yangi parol bilan kira oladi", async () => {
     await page.goto(`${base}/#/`);
     await page.getByRole('button', { name: 'Parol', exact: true }).click();
@@ -379,5 +567,6 @@ try {
 } finally {
   await browser.close();
   server.kill();
+  tgServer.close();
 }
 process.exit(failures ? 1 : 0);

@@ -1,12 +1,13 @@
 // Yuklama sinovi: ko'p o'quvchi bir vaqtda Reading imtihonini ishlaydi (kirish, boshlash, saqlash, yakunlash, natija).
 //
-//   node tests/load/run.mjs [--students 100] [--seconds 40] [--workers 8] [--sync 3]
+//   node tests/load/run.mjs [--students 100] [--seconds 40] [--workers 8] [--sync 3] [--video 250]
 //   MOCK_LOAD_DB=mysql node tests/load/run.mjs ...     (MOCK_TEST_MYSQL_* muhit o'zgaruvchilari, baza bo'sh bo'lishi kerak)
 //
 // Vaqtinchalik baza va PHP serverini o'zi ko'taradi (PHP_CLI_SERVER_WORKERS — parallel ishchilar; bu Apache/PHP-FPM
 // ga qaraganda soddaroq, lekin bir vaqtdagi so'rovlar va baza qulflarini haqiqatan sinaydi).
 // Har o'quvchi --sync soniyada bir marta javoblarni yuboradi (brauzerdagi saqlash davri ~ shunday). Chegaralar:
 // xatolar 0 ta, sync p95 < 1500 ms, barcha urinishlar yakunlanib, ball hisoblangan bo'lishi kerak.
+// --video <kbit/s> — har o'quvchi brauzerdagidek har 15 soniyada video bo'lagini ham yuklaydi (ekran + kamera yozuvi).
 
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -21,6 +22,8 @@ const STUDENTS = Number(args.students || 100);
 const SECONDS = Number(args.seconds || 40);
 const WORKERS = Number(args.workers || 8);
 const SYNC_EVERY = Number(args.sync || 3);
+const VIDEO_KBPS = Number(args.video || 0);
+const PIECE_SEC = 15;
 const QUESTIONS = 35;
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -105,6 +108,55 @@ class Client {
     if (data && data.csrf) this.csrf = data.csrf;
     return data;
   }
+
+  /** multipart/form-data (video bo'lagi). */
+  async upload(url, form, name) {
+    const started = performance.now();
+    let res;
+    try {
+      res = await fetch(`${base}/${url}`, {
+        method: 'POST',
+        headers: { 'x-csrf-token': this.csrf, cookie: [...this.cookies].map(([k, v]) => `${k}=${v}`).join('; ') },
+        body: form,
+      });
+    } catch (err) {
+      record(name, performance.now() - started, false);
+      errors.push(`${this.label} ${name}: ${err.message}`);
+      throw err;
+    }
+    const text = await res.text();
+    record(name, performance.now() - started, res.ok);
+    if (!res.ok) {
+      errors.push(`${this.label} ${name}: ${res.status} ${text.slice(0, 160)}`);
+      throw new Error(`${name}: ${res.status}`);
+    }
+    return JSON.parse(text);
+  }
+}
+
+const MP4_HEAD = Buffer.from('000000186674797069736f6d0000020069736f6d69736f32', 'hex');
+/** Video yozuv: har PIECE_SEC soniyada bitta bo'lak, oxirida yakunlash belgisi. */
+async function videoLoop(c, id, clientId, end) {
+  const seg = ('LOAD' + Math.random().toString(36).slice(2) + 'aaaaaaaaaaaaaaaa').replace(/[^A-Za-z0-9]/g, '').slice(0, 20);
+  const bytes = Math.round((VIDEO_KBPS * 1000 * PIECE_SEC) / 8);
+  let n = 0;
+  const started = Date.now();
+  await sleep(Math.random() * PIECE_SEC * 1000);
+  for (;;) {
+    const last = Date.now() + PIECE_SEC * 1000 >= end;
+    const body = Buffer.alloc(bytes, 7);
+    if (n === 0) MP4_HEAD.copy(body);
+    const form = new FormData();
+    for (const [k, v] of Object.entries({
+      client_id: clientId, seg, piece: String(n), section: 'R', content: 'screen+camera', audio: '0',
+      mime: 'video/mp4;codecs=avc1.42E01F', final: last ? '1' : '0', duration_ms: String(Date.now() - started), width: '1280', height: '720',
+    })) form.append(k, v);
+    form.append('data', new Blob([body], { type: 'video/mp4' }), `p${n}.mp4`);
+    await c.upload(`exam/${id}/rec/piece`, form, 'POST exam/:id/rec/piece');
+    n += 1;
+    if (last) return n;
+    await sleep(PIECE_SEC * 1000);
+  }
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -168,6 +220,7 @@ async function student(user, index) {
     const answers = {};
     let seq = 0;
     const end = Date.now() + SECONDS * 1000;
+    const video = VIDEO_KBPS > 0 ? videoLoop(c, id, clientId, end) : null;
     await sleep(Math.random() * SYNC_EVERY * 1000); // o'quvchilar bir vaqtda "chiqmasin"
     while (Date.now() < end) {
       const n = 1 + Math.floor(Math.random() * QUESTIONS);
@@ -177,6 +230,7 @@ async function student(user, index) {
       if (Math.random() < 0.15) await c.call('GET', `exam/${id}/state?client_id=${clientId}`, undefined, 'GET exam/:id/state');
       await sleep(SYNC_EVERY * 1000);
     }
+    if (video) await video;
     // Yakuniy javoblar (aniq ma'lum, natijani tekshirish uchun): hammasi to'g'ri.
     const finalAnswers = Object.fromEntries(Array.from({ length: QUESTIONS }, (_, i) => [i + 1, 'ABCD'[i % 4]]));
     await c.call('POST', `exam/${id}/section/finish`, { client_id: clientId, section: 'R', seq: seq + 1, answers: finalAnswers });
@@ -188,11 +242,12 @@ async function student(user, index) {
   }
 }
 
-console.log(`Yuklama: ${STUDENTS} o'quvchi, ${SECONDS} s, ${WORKERS} ishchi, saqlash har ${SYNC_EVERY} s, baza: ${useMysql ? 'MySQL' : 'SQLite'}`);
+console.log(`Yuklama: ${STUDENTS} o'quvchi, ${SECONDS} s, ${WORKERS} ishchi, saqlash har ${SYNC_EVERY} s, baza: ${useMysql ? 'MySQL' : 'SQLite'}${VIDEO_KBPS ? `, video ${VIDEO_KBPS} kbit/s (bo'lak ${PIECE_SEC} s)` : ''}`);
 const started = Date.now();
 const results = await Promise.all(bulk.created.map((u, i) => student(u, i)));
 const elapsed = (Date.now() - started) / 1000;
 const attemptsView = await admin.call('GET', `admin/mocks/${mockId}/attempts`).catch(() => ({ attempts: [] }));
+const recStatus = VIDEO_KBPS ? await admin.call('GET', 'admin/recordings/status').catch(() => null) : null;
 server.kill();
 
 // ---- Hisobot ----
@@ -231,6 +286,11 @@ check(finished === STUDENTS, `barcha o'quvchilar yakunladi (${finished}/${STUDEN
 const scoredOk = attemptsView.attempts.filter((a) => a.status === 'completed' && Number(a.r_raw) === QUESTIONS).length;
 check(scoredOk === STUDENTS, `Reading xom balli to'g'ri hisoblangan: ${scoredOk}/${STUDENTS} ta urinishda ${QUESTIONS}/${QUESTIONS}`);
 check(pct(stats.get('POST exam/:id/sync')?.ms || [0], 95) < 1500, `sync p95 < 1500 ms (${pct(stats.get('POST exam/:id/sync')?.ms || [0], 95).toFixed(0)} ms)`);
+if (VIDEO_KBPS) {
+  const ready = recStatus && recStatus.counts && recStatus.counts.ready ? recStatus.counts.ready.count : 0;
+  check(ready === STUDENTS, `video: har o'quvchining yozuvi yig'ilib navbatga qo'yildi (${ready}/${STUDENTS}, serverda ${recStatus ? (recStatus.disk_bytes / 1048576).toFixed(0) : '?'} MB)`);
+  check(pct(stats.get('POST exam/:id/rec/piece')?.ms || [0], 95) < 3000, `video bo'lagi p95 < 3000 ms (${pct(stats.get('POST exam/:id/rec/piece')?.ms || [0], 95).toFixed(0)} ms)`);
+}
 if (errors.length) console.log('\nBirinchi xatolar:\n  ' + errors.slice(0, 8).join('\n  '));
 rmSync(dir, { recursive: true, force: true });
 process.exit(failed ? 1 : 0);

@@ -13,6 +13,7 @@ use App\Http\Request;
 use App\Services\AttemptService;
 use App\Services\GradingService;
 use App\Services\MockService;
+use App\Services\Recordings;
 use App\Services\Scoring;
 use App\Services\Uploads;
 use App\Util;
@@ -73,6 +74,8 @@ final class AdminAttemptController
             'speaking' => Db::all('SELECT id, q_no, mime, size, duration, created_at FROM speaking_answers WHERE attempt_id = ? ORDER BY q_no', [$id]),
             'ratings' => $ratings,
             'events' => Db::all('SELECT type, section, detail, is_violation, created_ms FROM attempt_events WHERE attempt_id = ? ORDER BY id DESC LIMIT 500', [$id]),
+            'recordings' => Recordings::forAttempt($id),
+            'proctoring' => MockService::settings($mock)['proctoring'],
         ];
     }
 
@@ -103,6 +106,7 @@ final class AdminAttemptController
         foreach ($files as $file) {
             @unlink(Uploads::speakingPath($file));
         }
+        Recordings::deleteForAttempts([$id]);
         Audit::log((int) $admin['id'], 'attempt_reset', 'attempt:' . $id, [
             'user_id' => (int) $a['user_id'],
             'mock_id' => (int) $a['mock_id'],

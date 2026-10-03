@@ -5,11 +5,83 @@ import { ApiError, apiUrl, get, post } from '../lib/api.js';
 import { h, icon, mount } from '../lib/dom.js';
 import { formatDate, formatScore, levelLabel } from '../lib/text.js';
 import { confirmDialog, errorBox, modal, promptDialog, spinner, toast } from '../lib/ui.js';
-import { ATTEMPT_STATUS, EVENT, STAGE, pageHeader, statusBadge, table } from './common.js';
+import { ATTEMPT_STATUS, EVENT, PROCTOR_STATE, STAGE, pageHeader, statusBadge, table } from './common.js';
 
 function scoreCell(raw, score, max) {
   if (score === null || score === undefined) return raw !== null && raw !== undefined ? h('span', { class: 'muted', text: `${formatScore(raw)}${max ? '/' + max : ''}` }) : '—';
   return h('span', null, h('strong', { text: formatScore(score) }), raw !== null && raw !== undefined ? h('span', { class: 'muted small', text: ` (${formatScore(raw)}${max ? '/' + max : ''})` }) : null);
+}
+
+const REC_STATUS = {
+  recording: 'Yozilmoqda',
+  ready: 'Telegram navbatida',
+  sent: "Telegram'ga yuborildi",
+  failed: 'Yuborilmadi',
+  expired: "O'chirilgan",
+};
+const REC_CONTENT = { 'screen+camera': 'Ekran + kamera', screen: 'Ekran', camera: 'Kamera' };
+
+function playVideo(r) {
+  const video = h('video', { class: 'video-player', controls: true, autoplay: true, preload: 'metadata', src: apiUrl(`admin/recordings/${r.id}/file`) });
+  modal({ title: `${STAGE[r.section] || r.section} — ${new Date(r.started_ms).toLocaleString('uz-UZ')}`, body: video, wide: true })
+    .then(() => video.pause());
+}
+
+/** Urinish sahifasi: video yozuvlar (ko'rish, yuklab olish, Telegram havolasi, qayta yuborish). */
+function videoCard(d, meta, reload) {
+  const recs = d.recordings || [];
+  const p = meta.proctor || null;
+  const enabled = d.proctoring && (d.proctoring.camera !== 'off' || d.proctoring.screen !== 'off');
+  if (!recs.length && !p && !enabled) return null;
+  const retry = async (r) => {
+    try {
+      await post(`admin/recordings/${r.id}/retry`);
+      toast('Qayta navbatga qo\'yildi.', 'success');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+  const minutes = (ms) => (ms >= 60000 ? `${Math.round(ms / 60000)} daq` : `${Math.round(ms / 1000)} s`);
+  return h('div', { class: 'card' },
+    h('h3', { text: 'Video yozuvlar' }),
+    p ? h('p', { class: 'muted small', text: [
+      `Kamera: ${PROCTOR_STATE[p.camera] || '—'}`,
+      `ekran: ${PROCTOR_STATE[p.screen] || '—'}`,
+      p.screens > 1 ? `${p.screens} ta monitor` : null,
+      p.camera_missing ? "imtihon davomida kamera ishlamagan payt bo'lgan" : null,
+    ].filter(Boolean).join(' · ') }) : null,
+    recs.length ? table([
+      { title: "Bo'lim", render: (r) => STAGE[r.section] || r.section },
+      { title: 'Boshlangan', render: (r) => new Date(r.started_ms).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) },
+      { title: 'Davomiyligi', render: (r) => minutes(r.duration_ms) },
+      { title: 'Tarkib', render: (r) => `${REC_CONTENT[r.content] || r.content}${Number(r.has_audio) ? ' + ovoz' : ''}` },
+      { title: 'Hajm', render: (r) => `${(r.size / 1048576).toFixed(1)} MB` },
+      { title: 'Holat', render: (r) => h('div', null,
+        h('span', { class: r.status === 'failed' ? 'danger-text' : r.status === 'sent' ? '' : 'muted', text: REC_STATUS[r.status] || r.status }),
+        Number(r.complete) || r.status === 'recording' ? null : h('div', { class: 'muted small', text: "uzilgan (to'liq emas)" }),
+        r.tg_error && r.status !== 'sent' ? h('div', { class: 'muted small', text: r.tg_error }) : null
+      ) },
+      { title: '', render: (r) => h('div', { class: 'btn-row' },
+        r.playable ? h('button', { class: 'btn btn-sm', type: 'button', onclick: (e) => { e.stopPropagation(); playVideo(r); } }, "Ko'rish") : null,
+        r.playable ? h('a', { class: 'btn btn-sm', href: apiUrl(`admin/recordings/${r.id}/file?download=1`) }, 'Yuklab olish') : null,
+        r.tg_link ? h('a', { class: 'btn btn-sm', href: r.tg_link, target: '_blank', rel: 'noopener noreferrer' }, 'Telegram') : null,
+        r.status === 'failed' ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => retry(r) }, 'Qayta yuborish') : null
+      ) },
+    ], recs) : h('p', { class: 'muted', text: "Video yozuv yo'q." }),
+    h('p', { class: 'muted small', text: "Yozma qism videolari Telegram'ga yuborilgach serverdan o'chiriladi (\"Telegram\" tugmasi kanal xabarini ochadi); Speaking videolari serverda ham saqlanadi." })
+  );
+}
+
+/** Natijalar jadvali: video yozuvlar soni va kamera/ekran belgilari. */
+function proctorCell(a) {
+  const p = a.proctor;
+  const flags = [];
+  if (p && p.camera_missing) flags.push(h('span', { class: 'badge-danger', title: 'Kamera ishlamagan', text: 'kamerasiz' }));
+  if (p && p.screen_missing) flags.push(h('span', { class: 'badge-danger', title: 'Ekran ulashilmagan', text: 'ekransiz' }));
+  if (p && p.screens > 1) flags.push(h('span', { class: 'badge-danger', text: `${p.screens} monitor` }));
+  if (!flags.length && !a.videos) return h('span', { class: 'muted', text: '—' });
+  return h('div', { class: 'proctor-flags' }, a.videos ? h('span', { class: 'muted small', text: `${a.videos} ta` }) : null, flags);
 }
 
 export async function resultsPage(root, mockId, navigate) {
@@ -103,6 +175,7 @@ export async function resultsPage(root, mockId, navigate) {
     { title: 'Umumiy', render: (a) => h('strong', { text: formatScore(a.overall) }) },
     { title: 'Daraja', render: (a) => (a.level ? h('span', { class: `level level-${a.level}`, text: levelLabel(a.level) }) : '—') },
     { title: 'Qoidabuzarlik', class: 'num', render: (a) => h('span', { class: a.violations ? 'badge-danger' : 'muted', text: String(a.violations) }) },
+    { title: 'Video', render: proctorCell },
   ], attempts, { empty: "Hali urinishlar yo'q.", onRow: (a) => navigate(`/attempts/${a.id}`) }));
 
   mount(root,
@@ -242,6 +315,8 @@ export async function attemptPage(root, id, navigate) {
     d.speaking.map((s) => h('div', { class: 'row' }, h('span', { class: 'chip', text: `Savol ${s.q_no}` }), h('audio', { controls: true, preload: 'none', src: apiUrl(`speaking/${s.id}`) }), h('span', { class: 'muted small', text: `${Number(s.duration || 0).toFixed(1)} s` })))
   ) : null;
 
+  const videos = videoCard(d, meta, () => attemptPage(root, id, navigate));
+
   const ratings = d.ratings.length ? h('div', { class: 'card' },
     h('h3', { text: 'Ekspert baholari' }),
     table([
@@ -291,6 +366,7 @@ export async function attemptPage(root, id, navigate) {
     review,
     writing,
     speaking,
+    videos,
     ratings,
     events,
     h('p', { class: 'muted small', text: a.user_agent || '' })

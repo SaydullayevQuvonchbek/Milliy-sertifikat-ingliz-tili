@@ -314,15 +314,26 @@ final class AdminMockController
         $rows = Db::all(
             'SELECT a.id, a.attempt_no, a.status, a.stage, a.stage_state, a.violations, a.started_at, a.finished_at,
                     a.l_raw, a.r_raw, a.l_score, a.r_score, a.w_raw, a.w_score, a.s_raw, a.s_score, a.overall, a.level,
-                    a.score_method, a.grade_w, a.grade_s, a.anon_code, a.last_seen_ms, a.section_deadline_ms,
-                    u.id AS user_id, u.full_name, u.login
+                    a.score_method, a.grade_w, a.grade_s, a.anon_code, a.last_seen_ms, a.section_deadline_ms, a.meta_json,
+                    u.id AS user_id, u.full_name, u.login,
+                    (SELECT COUNT(*) FROM recordings rc WHERE rc.attempt_id = a.id) AS videos
              FROM attempts a JOIN users u ON u.id = a.user_id WHERE a.mock_id = ? ORDER BY a.overall IS NULL, a.overall DESC, a.id',
             [$mock['id']]
         );
         foreach ($rows as &$row) {
-            foreach (['id', 'attempt_no', 'violations', 'started_at', 'finished_at', 'user_id', 'last_seen_ms', 'section_deadline_ms'] as $k) {
+            foreach (['id', 'attempt_no', 'violations', 'started_at', 'finished_at', 'user_id', 'last_seen_ms', 'section_deadline_ms', 'videos'] as $k) {
                 $row[$k] = $row[$k] !== null ? (int) $row[$k] : null;
             }
+            // Video nazorat belgilari: kamera/ekran ishlamagan bo'lsa — natijalar jadvalida ko'rsatiladi.
+            $proctor = (array) (Util::decode($row['meta_json'])['proctor'] ?? []);
+            $row['proctor'] = $proctor === [] ? null : [
+                'camera' => $proctor['camera'] ?? null,
+                'screen' => $proctor['screen'] ?? null,
+                'camera_missing' => !empty($proctor['camera_missing']),
+                'screen_missing' => !empty($proctor['screen_missing']),
+                'screens' => (int) ($proctor['screens'] ?? 1),
+            ];
+            unset($row['meta_json']);
         }
         unset($row);
         return [
@@ -345,7 +356,7 @@ final class AdminMockController
         $statuses = ['in_progress' => 'Jarayonda', 'completed' => 'Yakunlangan', 'terminated' => 'Chetlatilgan'];
         $fh = fopen('php://temp', 'w+');
         fwrite($fh, "\xEF\xBB\xBF");
-        fputcsv($fh, ["O'rin", 'F.I.Sh.', 'Login', 'Urinish', 'Holat', 'Listening (to\'g\'ri)', 'Listening', 'Reading (to\'g\'ri)', 'Reading', 'Writing (xom)', 'Writing', 'Speaking (xom)', 'Speaking', 'Umumiy', 'Daraja', 'Qoidabuzarlik'], ';', '"', '');
+        fputcsv($fh, ["O'rin", 'F.I.Sh.', 'Login', 'Urinish', 'Holat', 'Listening (to\'g\'ri)', 'Listening', 'Reading (to\'g\'ri)', 'Reading', 'Writing (xom)', 'Writing', 'Speaking (xom)', 'Speaking', 'Umumiy', 'Daraja', 'Qoidabuzarlik', 'Video nazorat'], ';', '"', '');
         $place = 0;
         foreach ($rows as $a) {
             $place++;
@@ -358,6 +369,7 @@ final class AdminMockController
                 $a['l_raw'], $a['l_score'], $a['r_raw'], $a['r_score'],
                 $a['w_raw'], $a['w_score'], $a['s_raw'], $a['s_score'],
                 $a['overall'], $levels[$a['level']] ?? '', $a['violations'],
+                self::proctorNote(Util::decode($a['meta_json'])['proctor'] ?? null),
             ], ';', '"', '');
         }
         rewind($fh);
@@ -365,6 +377,25 @@ final class AdminMockController
         fclose($fh);
         $name = 'natijalar_' . preg_replace('/[^A-Za-z0-9_-]+/', '_', $mock['title']) . '.csv';
         return new TextResponse($csv, 'text/csv; charset=utf-8', $name);
+    }
+
+    /** CSV uchun: "kamerasiz, ekran ulashilmagan" yoki bo'sh. */
+    private static function proctorNote(mixed $proctor): string
+    {
+        if (!is_array($proctor)) {
+            return '';
+        }
+        $notes = [];
+        if (!empty($proctor['camera_missing'])) {
+            $notes[] = 'kamerasiz';
+        }
+        if (!empty($proctor['screen_missing'])) {
+            $notes[] = 'ekran ulashilmagan';
+        }
+        if ((int) ($proctor['screens'] ?? 1) > 1) {
+            $notes[] = $proctor['screens'] . ' ta monitor';
+        }
+        return $notes === [] ? 'ok' : implode(', ', $notes);
     }
 
     public static function rescore(Request $r): array

@@ -11,6 +11,7 @@ use App\Http\HttpError;
 use App\Http\Request;
 use App\Services\AttemptService;
 use App\Services\MockService;
+use App\Services\Recordings;
 use App\Services\Uploads;
 use App\Util;
 
@@ -192,6 +193,28 @@ final class ExamController
             $a = AttemptService::speakingUpload($a, $mock, $r->int('q_no'), $file, (float) $r->input('duration', 0));
             AttemptService::touch($a);
             return ['ok' => true, 'q_no' => $r->int('q_no')];
+        });
+    }
+
+    /** Video nazorat: kamera/ekran holati (darvozadan o'tishda va o'zgarganda). */
+    public static function proctorStatus(Request $r): array
+    {
+        return self::withAttempt($r, static function (array $a, array $mock) use ($r): array {
+            $a = AttemptService::setProctorStatus($a, $mock, $r->body);
+            return ['ok' => true, 'now' => Util::nowMs()];
+        });
+    }
+
+    /** Video nazorat: yozuv bo'lagi (~30 soniya). Imtihon tugagandan keyin ham qisqa vaqt qabul qilinadi. */
+    public static function recPiece(Request $r): array
+    {
+        $file = $r->files['data'] ?? null;
+        return self::withAttempt($r, static function (array $a, array $mock) use ($r, $file): array {
+            $result = Recordings::acceptPiece($a, $mock, $r->body, is_array($file) ? $file : null);
+            if ($a['status'] === 'in_progress') {
+                AttemptService::touch($a);
+            }
+            return $result + ['now' => Util::nowMs()];
         });
     }
 

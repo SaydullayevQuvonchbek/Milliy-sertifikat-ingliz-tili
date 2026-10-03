@@ -74,6 +74,8 @@ export function icon(name) {
     alert: 'M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
     play: 'M7 4v16l13-8L7 4Z',
     lock: 'M6 11h12v10H6V11Zm2 0V7a4 4 0 0 1 8 0v4',
+    camera: 'M3 8h4l2-3h6l2 3h4v11H3V8Zm9 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
+    monitor: 'M3 4h18v12H3V4Zm6 16h6m-3-4v4',
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');

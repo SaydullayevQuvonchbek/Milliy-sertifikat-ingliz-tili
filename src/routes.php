@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\AdminAttemptController as Attempts;
 use App\Controllers\AdminMockController as Mocks;
+use App\Controllers\AdminRecordingController as Recs;
 use App\Controllers\AdminSecurityController as SecurityCtl;
 use App\Controllers\AdminSettingsController as SettingsCtl;
 use App\Controllers\AdminUserController as Users;
@@ -40,6 +41,8 @@ return static function (Router $r): void {
     $r->post('/exam/{id}/speaking/next', [Exam::class, 'speakingNext']);
     $r->post('/exam/{id}/speaking/upload', [Exam::class, 'speakingUpload']);
     $r->post('/exam/{id}/speaking/finish', [Exam::class, 'speakingFinish']);
+    $r->post('/exam/{id}/proctor', [Exam::class, 'proctorStatus']);
+    $r->post('/exam/{id}/rec/piece', [Exam::class, 'recPiece']);
 
     // Administrator: mocklar
     $r->get('/admin/dashboard', [Attempts::class, 'dashboard']);
@@ -71,6 +74,14 @@ return static function (Router $r): void {
     $r->post('/admin/attempts/{id}/reset', [Attempts::class, 'reset']);
     $r->post('/admin/attempts/{id}/terminate', [Attempts::class, 'terminate']);
     $r->get('/speaking/{id}', [Attempts::class, 'speakingAudio']);
+
+    // Administrator: video nazorat va Telegram
+    $r->get('/admin/recordings/status', [Recs::class, 'status']);
+    $r->post('/admin/recordings/test', [Recs::class, 'test']);
+    $r->post('/admin/recordings/run', [Recs::class, 'run']);
+    $r->post('/admin/recordings/retry', [Recs::class, 'retry']);
+    $r->post('/admin/recordings/{id}/retry', [Recs::class, 'retry']);
+    $r->get('/admin/recordings/{id}/file', [Recs::class, 'file']);
 
     // Administrator: foydalanuvchilar va sozlamalar
     $r->get('/admin/users', [Users::class, 'list']);

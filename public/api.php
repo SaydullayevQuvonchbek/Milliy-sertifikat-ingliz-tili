@@ -39,6 +39,7 @@ function send_json(mixed $data, int $status = 200): void
 }
 
 try {
+    App\Installer::ensureSchema();
     $request = Request::capture();
     Auth::start();
     Auth::user();

@@ -161,3 +161,36 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
 );
+
+-- Video nazorat: ekran + kamera yozuvlari (bo'laklab yuklanadi, keyin Telegram kanalga yuboriladi).
+CREATE TABLE IF NOT EXISTS recordings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+    seg_key TEXT NOT NULL,
+    section TEXT NOT NULL,
+    content TEXT NOT NULL,
+    has_audio INTEGER NOT NULL DEFAULT 0,
+    mime TEXT NOT NULL,
+    codec TEXT,
+    file TEXT NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
+    pieces INTEGER NOT NULL DEFAULT 0,
+    started_ms INTEGER NOT NULL,
+    last_ms INTEGER NOT NULL,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    width INTEGER,
+    height INTEGER,
+    status TEXT NOT NULL DEFAULT 'recording',
+    complete INTEGER NOT NULL DEFAULT 0,
+    file_deleted INTEGER NOT NULL DEFAULT 0,
+    tg_chat TEXT,
+    tg_message_id INTEGER,
+    tg_tries INTEGER NOT NULL DEFAULT 0,
+    tg_next_at INTEGER NOT NULL DEFAULT 0,
+    tg_error TEXT,
+    sent_at INTEGER,
+    created_at INTEGER NOT NULL,
+    UNIQUE (attempt_id, seg_key)
+);
+CREATE INDEX IF NOT EXISTS idx_rec_queue ON recordings (status, tg_next_at);
+CREATE INDEX IF NOT EXISTS idx_rec_attempt ON recordings (attempt_id);

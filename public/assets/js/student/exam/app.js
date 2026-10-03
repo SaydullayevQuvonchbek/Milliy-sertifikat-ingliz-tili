@@ -14,6 +14,7 @@ import { QuestionSection } from './questionSection.js';
 import { WritingSection } from './writing.js';
 import { ListeningPlayer, createAudioElement, preloadAudio, unlockAudio } from './listening.js';
 import { Microphone, SpeakingRunner, micCheck } from './speaking.js';
+import { Proctor } from './proctor.js';
 
 const WARN_AT = [10, 5, 1];
 /** Sahifani yangilash uchun ruxsat etilgan vaqt; undan uzoq yopiq tursa — qoidabuzarlik. */
@@ -121,6 +122,18 @@ export class ExamApp {
       this.saver.start();
       this.checkPreviousLeave(state);
       this.watchTabs();
+      const proctoring = state.mock.proctoring;
+      if (proctoring && (proctoring.camera !== 'off' || proctoring.screen !== 'off')) {
+        this.proctor = new Proctor({
+          attemptId: this.id,
+          clientId: this.clientId,
+          code: state.attempt.candidate_no,
+          config: proctoring,
+          report: (type, detail, violation) => this.report(type, detail, violation),
+          lock: this.lock,
+        });
+        this.proctor.installUnloadGuard();
+      }
     }
     window.addEventListener('offline', () => this.report('offline', '', false));
     window.addEventListener('online', () => this.report('online', '', false));
@@ -180,6 +193,8 @@ export class ExamApp {
     if (this.saver) this.saver.stop();
     if (this.lock) this.lock.disable();
     if (this.mic) this.mic.close();
+    // Yozuv to'xtaydi, lekin yuborilmagan bo'laklar fonda yuborilishda davom etadi (sahifa yopilmaguncha).
+    if (this.proctor) this.proctor.stop();
   }
 
   exit() {
@@ -221,6 +236,7 @@ export class ExamApp {
   onFatal(code, message) {
     this.teardownView();
     if (this.saver) this.saver.stop();
+    if (this.proctor) this.proctor.stop();
     if (this.lock) {
       this.lock.disable();
       this.lock.exitFullscreen();
@@ -272,14 +288,18 @@ export class ExamApp {
     this.finishing = false;
     const a = state.attempt;
 
+    const recUpload = () => (this.proctor ? this.proctor.uploadStatus() : null);
     if (a.status === 'terminated') {
       this.stopExam();
-      this.screen(T.terminatedTitle, T.terminatedText, true, state.terminated_reason ? h('p', { class: 'muted', text: state.terminated_reason }) : null);
+      this.screen(T.terminatedTitle, T.terminatedText, true, h('div', null,
+        state.terminated_reason ? h('p', { class: 'muted', text: state.terminated_reason }) : null,
+        recUpload()
+      ));
       return;
     }
     if (a.status === 'completed' || a.stage === 'done') {
       this.stopExam();
-      this.screen(T.finishedTitle, T.finishedText);
+      this.screen(T.finishedTitle, T.finishedText, true, recUpload());
       return;
     }
 
@@ -294,7 +314,7 @@ export class ExamApp {
       else if (this.options.intent === 'speaking' || state.mock.speaking_mode === 'same_session') this.renderSpeakingIntro(state);
       else {
         this.stopExam();
-        this.screen(T.writtenDoneTitle, T.writtenDoneSeparate);
+        this.screen(T.writtenDoneTitle, T.writtenDoneSeparate, true, recUpload());
       }
       return;
     }
@@ -316,6 +336,7 @@ export class ExamApp {
 
   stopExam() {
     if (this.saver) this.saver.stop();
+    if (this.proctor) this.proctor.stop();
     if (this.lock) {
       this.lock.disable();
       this.lock.exitFullscreen();
@@ -334,14 +355,17 @@ export class ExamApp {
     const startBtn = h('button', { class: 'btn btn-primary btn-lg', type: 'button', disabled: true }, sec.code === 'L' ? T.startListening : T.startSection(SECTION[sec.code]));
     const audioStatus = h('div', { class: 'preload' });
     let audioReady = sec.code !== 'L';
+    const proctor = this.proctor;
     const update = () => {
-      startBtn.disabled = !(accept.checked && audioReady);
+      startBtn.disabled = !(accept.checked && audioReady && (!proctor || proctor.ready()));
     };
     accept.addEventListener('change', update);
+    const unsubscribe = proctor ? proctor.onChange(update) : null;
 
     const autoNote = h('p', { class: 'muted small' });
     const view = {
       tick: (now) => setText(autoNote, T.autoStartFirst(formatClock(Math.max(0, sec.auto_start_ms - now)))),
+      destroy: () => unsubscribe && unsubscribe(),
     };
     this.view = view;
 
@@ -362,19 +386,22 @@ export class ExamApp {
       await this.lock.enterFullscreen();
       this.lock.enable();
       unlockAudio(this.audio);
+      if (proctor) await proctor.sendStatus();
       await this.startSection(sec.code);
     };
 
     const soundCheck = sec.code === 'L' || state.attempt.sections.includes('L') ? this.soundCheck() : null;
+    const rules = proctor ? T.rules.concat(T.rulesProctor) : T.rules;
     this.root.replaceChildren(h('div', { class: 'center-screen' },
       h('div', { class: 'card rules-card' },
         h('div', { class: 'rules-head' },
           h('div', null, h('p', { class: 'eyebrow', text: state.mock.title }), h('h1', { text: T.rulesTitle })),
           h('div', { class: 'candidate-box' }, h('span', { class: 'muted', text: T.candidate }), h('strong', { text: state.candidate.name }), h('span', { class: 'code', text: state.attempt.candidate_no }))
         ),
-        h('ol', { class: 'rules-list' }, T.rules.map((r) => h('li', { text: r })), h('li', { class: 'strong', text: T.rulesViolations(lockdown.action === 'terminate' ? lockdown.max_violations : 0) })),
+        h('ol', { class: 'rules-list' }, rules.map((r) => h('li', { text: r })), h('li', { class: 'strong', text: T.rulesViolations(lockdown.action === 'terminate' ? lockdown.max_violations : 0) })),
         h('div', { class: 'section-chips' }, state.attempt.sections.map((c) => h('span', { class: 'chip', text: SECTION[c] }))),
         soundCheck,
+        proctor ? proctor.gateCard() : null,
         sec.code === 'L' ? audioStatus : null,
         h('label', { class: 'check' }, accept, h('span', { text: T.rulesAccept })),
         lockdown.fullscreen ? h('p', { class: 'muted small', text: T.fullscreenNote }) : null,
@@ -490,26 +517,38 @@ export class ExamApp {
   renderResumeGate(state) {
     const sec = state.section;
     const box = h('div', { class: 'preload' });
-    const btn = h('button', { class: 'btn btn-primary btn-lg', type: 'button', disabled: sec.code === 'L' && !this.urls }, T.resume);
+    const proctor = this.proctor;
+    let audioReady = !(sec.code === 'L' && !this.urls);
+    const btn = h('button', { class: 'btn btn-primary btn-lg', type: 'button', disabled: true }, T.resume);
+    const update = () => {
+      btn.disabled = !(audioReady && (!proctor || proctor.ready()));
+    };
     btn.onclick = async () => {
       btn.disabled = true;
       this.gatePassed = true;
       await this.lock.enterFullscreen();
       this.lock.enable();
       unlockAudio(this.audio);
+      if (proctor) await proctor.sendStatus();
       await this.reloadState();
     };
-    if (sec.code === 'L' && !this.urls) this.preload(sec.audio, box, () => (btn.disabled = false));
-    this.view = { tick: () => {} };
+    if (sec.code === 'L' && !this.urls) this.preload(sec.audio, box, () => {
+      audioReady = true;
+      update();
+    });
+    const unsubscribe = proctor ? proctor.onChange(update) : null;
+    this.view = { tick: () => {}, destroy: () => unsubscribe && unsubscribe() };
     this.root.replaceChildren(h('div', { class: 'center-screen' },
-      h('div', { class: 'card card-narrow' },
+      h('div', { class: proctor ? 'card rules-card' : 'card card-narrow' },
         h('p', { class: 'eyebrow', text: state.mock.title }),
         h('h2', { text: `${SECTION[sec.code]} — ${T.resume.toLowerCase()}` }),
         h('p', { class: 'muted', text: `${T.timeLeft}: ${formatMinutes(Math.max(0, sec.deadline_ms - serverNow()))}` }),
         sec.code === 'L' ? box : null,
+        proctor && !proctor.ready() ? proctor.gateCard() : null,
         h('div', { class: 'actions' }, btn)
       )
     ));
+    update();
   }
 
   // ------------------------------------------------------------------
@@ -526,6 +565,8 @@ export class ExamApp {
     const writing = useLocal ? local.data.writing || {} : sec.writing || {};
 
     let player = null;
+    // Administrator "vaqt tugamasdan yakunlash"ni o'chirgan bo'lsa — bo'lim faqat vaqt tugaganda yopiladi.
+    const earlyFinish = !state.mock.flow || state.mock.flow.early_finish !== false;
     const shell = new ExamShell({
       candidate: state.candidate.name,
       code: state.attempt.candidate_no,
@@ -558,6 +599,7 @@ export class ExamApp {
       this.saver.bind(code, () => ({ answers: view.values() }), useLocal ? local.seq : serverSeq, serverSeq);
     }
     shell.setBody(view.root);
+    if (!earlyFinish) shell.finishBtn.hidden = true;
 
     if (code === 'L') {
       const reviewMs = (sec.content.review_sec || 0) * 1000;
@@ -584,7 +626,7 @@ export class ExamApp {
       tick: (now) => {
         const left = sec.deadline_ms - now;
         shell.setTimer(left);
-        if (code === 'L' && shell.finishBtn.hidden && now >= this.reviewFrom) shell.finishBtn.hidden = false;
+        if (code === 'L' && earlyFinish && shell.finishBtn.hidden && now >= this.reviewFrom) shell.finishBtn.hidden = false;
         for (const min of WARN_AT) {
           if (left <= min * 60000 && left > (min * 60000 - 5000) && !warned.has(min)) {
             warned.add(min);
@@ -604,10 +646,12 @@ export class ExamApp {
     this.view.tick(serverNow());
     if (view.focusCurrent) view.focusCurrent();
     if (useLocal) this.saver.sync();
+    if (this.proctor) this.proctor.setSection(code);
   }
 
   async confirmFinish() {
     if (!this.view || !this.view.counts) return;
+    if (this.state && this.state.mock.flow && this.state.mock.flow.early_finish === false) return;
     const { unanswered, flagged } = this.view.counts();
     const ok = await confirmDialog(T.finishConfirmTitle, T.finishConfirm(unanswered, flagged), T.finishYes, 'danger');
     if (ok) this.finishSection(false);
@@ -662,14 +706,32 @@ export class ExamApp {
   // Speaking
   // ------------------------------------------------------------------
 
+  /** Speaking darvozasi: mikrofon (majburiy) va kamera (mock sozlamasiga ko'ra). */
+  speakingGate(btn) {
+    const proctor = this.proctor;
+    if (proctor) proctor.speakingMode();
+    let micOk = false;
+    const update = () => {
+      btn.disabled = !(micOk && (!proctor || proctor.ready()));
+    };
+    const check = micCheck(this.mic, (ok) => {
+      micOk = ok;
+      update();
+    });
+    const unsubscribe = proctor ? proctor.onChange(update) : null;
+    this.view = { tick: () => {}, destroy: () => unsubscribe && unsubscribe() };
+    return [check, proctor ? proctor.gateCard({ speaking: true }) : null];
+  }
+
   renderSpeakingIntro(state) {
     this.mic = this.mic || new Microphone();
     const startBtn = h('button', { class: 'btn btn-primary btn-lg', type: 'button', disabled: true }, T.startSpeakingNow);
-    const check = micCheck(this.mic, (ok) => (startBtn.disabled = !ok));
+    const [check, camera] = this.speakingGate(startBtn);
     startBtn.onclick = async () => {
       startBtn.disabled = true;
       await this.lock.enterFullscreen();
       this.lock.enable();
+      if (this.proctor) await this.proctor.sendStatus();
       try {
         const next = await post(`exam/${this.id}/speaking/start`, { client_id: this.clientId });
         this.state = next;
@@ -679,13 +741,14 @@ export class ExamApp {
         toast(err.message, 'error');
       }
     };
-    this.view = { tick: () => {} };
     this.root.replaceChildren(h('div', { class: 'center-screen' },
       h('div', { class: 'card rules-card' },
         h('p', { class: 'eyebrow', text: state.mock.title }),
         h('h1', { text: T.speakingIntro }),
         h('ol', { class: 'rules-list' }, T.speakingRules.map((r) => h('li', { text: r }))),
+        state.mock.flow && state.mock.flow.speaking_skip ? h('p', { class: 'muted small', text: T.skipHint }) : null,
         check,
+        camera,
         h('div', { class: 'actions' }, startBtn)
       )
     ));
@@ -695,20 +758,21 @@ export class ExamApp {
     this.mic = this.mic || new Microphone();
     const sec = state.section;
     const btn = h('button', { class: 'btn btn-primary btn-lg', type: 'button', disabled: true }, T.resume);
-    const check = micCheck(this.mic, (ok) => (btn.disabled = !ok));
+    const [check, camera] = this.speakingGate(btn);
     btn.onclick = async () => {
       btn.disabled = true;
       await this.lock.enterFullscreen();
       this.lock.enable();
+      if (this.proctor) await this.proctor.sendStatus();
       const current = sec.current;
       const missed = current && !sec.uploaded.includes(current.no);
       this.runSpeaking(state, { missed });
     };
-    this.view = { tick: () => {} };
     this.root.replaceChildren(h('div', { class: 'center-screen' },
-      h('div', { class: 'card card-narrow' },
+      h('div', { class: this.proctor ? 'card rules-card' : 'card card-narrow' },
         h('h2', { text: T.speakingIntro }),
         check,
+        camera,
         h('div', { class: 'actions' }, btn)
       )
     ));
@@ -723,6 +787,10 @@ export class ExamApp {
     );
     this.root.replaceChildren(h('div', { class: 'exam exam-speaking' }, header, h('main', { class: 'exam-body' }, stage)));
     this.saver.unbind();
+    if (this.proctor) {
+      const micTrack = this.mic && this.mic.stream ? this.mic.stream.getAudioTracks()[0] : null;
+      this.proctor.setSection('S', micTrack ? micTrack.clone() : null);
+    }
     const runner = new SpeakingRunner({
       attemptId: this.id,
       clientId: this.clientId,
@@ -730,6 +798,7 @@ export class ExamApp {
       root: stage,
       total: state.section.total,
       uploaded: state.section.uploaded || [],
+      skip: Boolean(state.mock.flow && state.mock.flow.speaking_skip),
       onDone: (next) => {
         this.mic.close();
         this.mic = null;

@@ -13,7 +13,7 @@ Options -Indexes
     Header always set X-Frame-Options "DENY"
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     Header always set Referrer-Policy "same-origin"
-    Header always set Permissions-Policy "camera=(), geolocation=(), microphone=(self), fullscreen=(self)"
+    Header always set Permissions-Policy "camera=(self), display-capture=(self), geolocation=(), microphone=(self), fullscreen=(self)"
     <FilesMatch "\.(html|js|css)$">
         Header set Cache-Control "no-cache"
     </FilesMatch>

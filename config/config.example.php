@@ -54,6 +54,20 @@ return [
     // aks holda o'quvchi sarlavhani soxtalashtira oladi.
     'trusted_proxies' => ['private'],
 
+    // Video nazorat (ekran + kamera) yozuvlarini Telegram kanalga yuborish. Bo'sh qoldirilsa, yozuvlar faqat serverda
+    // saqlanadi (admin panelda ko'rinadi). Sozlash: @BotFather'da bot yarating; yopiq kanal oching va botni kanalga
+    // administrator qilib qo'shing (xabar yuborish huquqi bilan); kanal ID'si -100 bilan boshlanadi.
+    // Navbatni cron yuboradi: har daqiqada `php bin/recordings.php` (yo'riqnoma: deploy/SERVERGA-JOYLASH.md).
+    'telegram' => [
+        'bot_token' => '',
+        'chat_id' => '',            // masalan '-1001234567890'
+        'speaking_chat_id' => '',   // ixtiyoriy: Speaking videolari uchun alohida kanal (bo'sh — chat_id)
+        // Server Rossiyada bo'lsa (masalan, reg.ru), api.telegram.org bloklangan: chet eldagi relay manzili
+        // (https://relay.example.com — so'rovni api.telegram.org ga uzatadi) yoki proxy (socks5h://user:pass@host:1080).
+        'api_base' => '',
+        'proxy' => '',
+    ],
+
     // Xatoliklar tafsilotini javobda ko'rsatish (faqat ishlab chiqishda yoqing).
     'debug' => false,
 ];

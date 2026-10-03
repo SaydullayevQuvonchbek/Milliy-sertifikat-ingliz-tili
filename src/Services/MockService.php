@@ -38,8 +38,16 @@ final class MockService
             'grading' => ['raters' => 2, 'diff_w' => 3, 'diff_s' => 3],
             'speaking' => ['mode' => 'separate', 'from' => null, 'to' => null],
             'results' => 'publish',
+            // Video nazorat: 'off' — yozilmaydi; 'optional' — bo'lsa yoziladi, bo'lmasa imtihon davom etadi (belgi
+            // qo'yiladi); 'required' — kamerasiz (ekran ulashilmasa) bo'lim boshlanmaydi.
+            'proctoring' => ['camera' => 'optional', 'screen' => 'optional'],
+            // early_finish — Listening/Reading/Writing'ni vaqt tugamasdan yakunlash tugmasi;
+            // speaking_skip — Speaking'da tayyorlanishni o'tkazib yuborish va javobni erta tugatib keyingi savolga o'tish.
+            'flow' => ['early_finish' => true, 'speaking_skip' => false],
         ];
     }
+
+    public const PROCTOR_MODES = ['off', 'optional', 'required'];
 
     public static function emptySource(): array
     {
@@ -68,6 +76,12 @@ final class MockService
     public static function mergeSettings(array $input): array
     {
         $defaults = self::defaultSettings();
+        // Guruhlar (lockdown, proctoring, ...) massiv bo'lmasa — standart qiymat (buzilgan JSON sozlamani buzmasin).
+        foreach ($defaults as $group => $value) {
+            if (is_array($value) && array_key_exists($group, $input) && !is_array($input[$group]) && $group !== 'sections') {
+                unset($input[$group]);
+            }
+        }
         $s = array_replace_recursive($defaults, $input);
 
         $sections = array_values(array_intersect(['L', 'R', 'W', 'S'], (array) ($input['sections'] ?? $defaults['sections'])));
@@ -87,6 +101,14 @@ final class MockService
         $s['speaking']['from'] = is_numeric($s['speaking']['from'] ?? null) ? (int) $s['speaking']['from'] : null;
         $s['speaking']['to'] = is_numeric($s['speaking']['to'] ?? null) ? (int) $s['speaking']['to'] : null;
         $s['results'] = in_array($s['results'], ['publish', 'instant'], true) ? $s['results'] : 'publish';
+        foreach (['camera', 'screen'] as $kind) {
+            $mode = $s['proctoring'][$kind] ?? null;
+            $s['proctoring'][$kind] = in_array($mode, self::PROCTOR_MODES, true) ? $mode : $defaults['proctoring'][$kind];
+        }
+        $s['proctoring'] = array_intersect_key($s['proctoring'], $defaults['proctoring']);
+        $s['flow']['early_finish'] = (bool) ($s['flow']['early_finish'] ?? true);
+        $s['flow']['speaking_skip'] = (bool) ($s['flow']['speaking_skip'] ?? false);
+        $s['flow'] = array_intersect_key($s['flow'], $defaults['flow']);
         return $s;
     }
 

@@ -27,7 +27,7 @@ DEFAULT_OUT = os.path.normpath(os.path.join(REPO, '..', 'ingliz-tili-mock.zip'))
 # Repo'dan olinadigan yo'llar (papkalar rekursiv).
 INCLUDE = [
     'public', 'src', 'database',
-    'bin/install.php', 'bin/seed-content.php', 'bin/backup.php',
+    'bin/install.php', 'bin/seed-content.php', 'bin/backup.php', 'bin/recordings.php',
     'content/lib.php', 'content/mocks',
     'config/config.example.php',
     'storage/.htaccess', 'storage/README.md',
@@ -51,7 +51,7 @@ EXTRA = [
 REQUIRED = [
     '.htaccess', 'public/.htaccess', 'public/.user.ini', 'public/api.php', 'public/index.html', 'public/admin/index.html',
     'src/bootstrap.php', 'config/config.example.php', 'database/schema.mysql.sql', 'database/schema.sqlite.sql',
-    'bin/install.php', 'bin/backup.php', 'storage/.htaccess', 'SERVERGA-JOYLASH.md',
+    'bin/install.php', 'bin/backup.php', 'bin/recordings.php', 'storage/.htaccess', 'SERVERGA-JOYLASH.md',
 ]
 FORBIDDEN_PARTS = {'demo', 'tests', '.git', '.github', 'tools', 'node_modules'}
 FORBIDDEN_FILES = {'config/config.php', 'bin/seed-demo.php', 'bin/dev-router.php', 'bin/check-content.php'}

@@ -19,6 +19,9 @@ final class Security
         . "media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; "
         . "form-action 'self'; frame-ancestors 'none'";
 
+    /** Kamera va ekranni ulashish — video nazorat uchun; mikrofon — Speaking uchun. */
+    public const PERMISSIONS = 'camera=(self), display-capture=(self), geolocation=(), microphone=(self), fullscreen=(self)';
+
     /** @return array<string,string> */
     public static function htmlHeaders(): array
     {
@@ -27,7 +30,7 @@ final class Security
             'X-Frame-Options' => 'DENY',
             'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy' => 'same-origin',
-            'Permissions-Policy' => 'camera=(), geolocation=(), microphone=(self), fullscreen=(self)',
+            'Permissions-Policy' => self::PERMISSIONS,
         ];
     }
 }

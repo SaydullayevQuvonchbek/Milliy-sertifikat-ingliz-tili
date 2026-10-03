@@ -6,6 +6,23 @@ namespace App;
 
 final class Installer
 {
+    /** Sxema o'zgarganda oshiriladi: yangi versiya yuklanganda yetishmayotgan jadvallar o'zi yaratiladi. */
+    public const SCHEMA_VERSION = 2;
+
+    /**
+     * Yangi versiyani serverga yuklagandan keyin buyruq qatorisiz ishlashi uchun: birinchi so'rovda jadvallar
+     * (CREATE TABLE IF NOT EXISTS — mavjudlariga tegilmaydi) yaratiladi va belgi fayli yoziladi.
+     */
+    public static function ensureSchema(): void
+    {
+        $flag = Config::storagePath('schema.v' . self::SCHEMA_VERSION);
+        if (is_file($flag)) {
+            return;
+        }
+        self::install();
+        @file_put_contents($flag, date('c') . "\n");
+    }
+
     public static function install(): void
     {
         $file = APP_ROOT . '/database/schema.' . (Db::driver() === 'mysql' ? 'mysql' : 'sqlite') . '.sql';

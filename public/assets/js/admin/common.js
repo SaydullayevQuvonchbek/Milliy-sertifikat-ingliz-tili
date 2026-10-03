@@ -43,6 +43,32 @@ export const EVENT = {
   mic_error: 'Mikrofon xatosi',
   device_change: 'Qurilma almashdi',
   terminated: 'Imtihon to\'xtatildi',
+  camera_ok: 'Kamera yoqildi',
+  camera_none: 'Kamera topilmadi',
+  camera_denied: 'Kameraga ruxsat berilmadi',
+  camera_lost: 'Kamera uzildi',
+  screen_ok: 'Ekran ulashildi',
+  screen_denied: 'Ekran ulashilmadi',
+  screen_wrong: 'Butun ekran tanlanmadi',
+  screen_stopped: "Ekran ulashish to'xtatildi",
+  screen_unsupported: "Brauzer ekran yozishni qo'llamaydi",
+  multi_screen: 'Bir nechta monitor',
+  rec_error: 'Video yozuv xatosi',
+  rec_dropped: "Video bo'lagi yo'qoldi",
+  rec_unsupported: "Brauzer video yozishni qo'llamaydi",
+};
+
+/** Video nazorat holati (natijalar jadvali va urinish sahifasi). */
+export const PROCTOR_STATE = {
+  ok: 'ishladi',
+  none: "yo'q",
+  denied: 'rad etildi',
+  wrong: "butun ekran emas",
+  unsupported: "brauzer qo'llamaydi",
+  error: 'xato',
+  stopped: "to'xtatildi",
+  lost: 'uzildi',
+  off: "o'chiq",
 };
 
 export function statusBadge(status, labels = MOCK_STATUS) {

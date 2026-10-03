@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Db;
 use App\Http\HttpError;
+use App\Settings;
 use App\Util;
 use PDOException;
 
@@ -35,13 +36,22 @@ final class AttemptService
     public const SPEAKING_NEXT_TOLERANCE_MS = 1_500;
     public const SPEAKING_ABANDON_MS = 30 * 60_000;
     public const MAX_EVENTS_PER_REQUEST = 100;
+    /** "Vaqt tugamasdan yakunlash" o'chiq bo'lsa ham muddatdan shuncha oldin yakunlash qabul qilinadi (soat farqi). */
+    public const EARLY_FINISH_TOLERANCE_MS = 3_000;
 
     public const VIOLATION_TYPES = ['focus_lost', 'fullscreen_exit', 'page_closed', 'device_takeover', 'multiple_tabs', 'devtools'];
     public const INFO_TYPES = [
         'paste_blocked', 'copy_blocked', 'cut_blocked', 'shortcut_blocked', 'contextmenu_blocked', 'drop_blocked',
         'print_blocked', 'offline', 'online', 'reload', 'returned', 'audio_error', 'audio_resync', 'large_insert',
         'mic_error', 'device_change', 'section_view', 'seb_missing', 'resize',
+        // Video nazorat
+        'camera_ok', 'camera_none', 'camera_denied', 'camera_lost', 'screen_ok', 'screen_denied', 'screen_wrong',
+        'screen_stopped', 'screen_unsupported', 'multi_screen', 'rec_error', 'rec_dropped', 'rec_unsupported',
     ];
+    /** Shu hodisalar mock sozlamasida tegishli nazorat "majburiy" bo'lsa qoidabuzarlik hisoblanadi. */
+    private const PROCTOR_VIOLATIONS = ['screen_stopped' => 'screen', 'camera_lost' => 'camera'];
+    /** Kamera/ekran holati (mijoz yuboradi). */
+    public const PROCTOR_STATES = ['off', 'ok', 'none', 'denied', 'wrong', 'unsupported', 'error', 'stopped', 'lost'];
 
     // ---------------------------------------------------------------------
     // Yordamchilar
@@ -393,8 +403,58 @@ final class AttemptService
         if ($a['stage_state'] === 'active') {
             return $a;
         }
+        self::assertProctoring($a, $mock);
         $lead = $section === 'L' ? self::LISTENING_LEAD_MS : 0;
         return self::activate($a, $mock, $section, Util::nowMs() + $lead);
+    }
+
+    /** Mockda kamera yoki ekran yozuvi majburiy bo'lsa, ular ishlamaguncha bo'lim boshlanmaydi. */
+    private static function assertProctoring(array $a, array $mock): void
+    {
+        $required = MockService::settings($mock)['proctoring'];
+        $status = self::meta($a)['proctor'] ?? [];
+        if ($required['camera'] === 'required' && ($status['camera'] ?? null) !== 'ok') {
+            throw new HttpError(422, 'camera_required', "Bu imtihon kamera bilan o'tkaziladi. Kamerani yoqing va ruxsat bering.");
+        }
+        if ($required['screen'] === 'required' && ($status['screen'] ?? null) !== 'ok') {
+            throw new HttpError(422, 'screen_required', "Bu imtihonda ekran yozib olinadi. \"Butun ekran\"ni ulashing.");
+        }
+    }
+
+    /**
+     * Mijozdagi kamera va ekran holatini saqlash (darvozadan o'tishda va o'zgarganda).
+     * Natijalar jadvalidagi "kamerasiz" belgisi shundan olinadi.
+     */
+    public static function setProctorStatus(array $a, array $mock, array $input): array
+    {
+        if ($a['status'] !== 'in_progress') {
+            return $a;
+        }
+        $settings = MockService::settings($mock)['proctoring'];
+        $meta = self::meta($a);
+        $old = (array) ($meta['proctor'] ?? []);
+        $new = $old;
+        foreach (['camera', 'screen'] as $kind) {
+            $value = $input[$kind] ?? null;
+            if ($settings[$kind] === 'off') {
+                $new[$kind] = 'off';
+            } elseif (is_string($value) && in_array($value, self::PROCTOR_STATES, true)) {
+                $new[$kind] = $value;
+            }
+            // Imtihon davomida kamera kamida bir marta ishlamagan bo'lsa — belgi saqlanib qoladi.
+            if (($new[$kind] ?? 'off') !== 'ok' && ($new[$kind] ?? 'off') !== 'off') {
+                $new[$kind . '_missing'] = true;
+            }
+        }
+        if (array_key_exists('screens', $input) && is_numeric($input['screens'])) {
+            $new['screens'] = max(1, min(9, (int) $input['screens']));
+        }
+        if ($new === $old) {
+            return $a;
+        }
+        $new['at_ms'] = Util::nowMs();
+        $meta['proctor'] = $new;
+        return self::persist($a, ['meta_json' => Util::json($meta)]);
     }
 
     /**
@@ -482,6 +542,13 @@ final class AttemptService
             return $a; // Allaqachon yopilgan — takroriy so'rov xato emas.
         }
         $at = min(Util::nowMs(), (int) $a['section_deadline_ms']);
+        // Administrator "vaqt tugamasdan yakunlash"ni o'chirgan bo'lsa — faqat vaqt tugaganda.
+        if (
+            !MockService::settings($mock)['flow']['early_finish']
+            && Util::nowMs() < (int) $a['section_deadline_ms'] - self::EARLY_FINISH_TOLERANCE_MS
+        ) {
+            throw new HttpError(422, 'early_finish_disabled', "Bu mockda bo'limni vaqt tugamasdan yakunlab bo'lmaydi.");
+        }
         // Listening audio tugamasdan yakunlab bo'lmaydi.
         if ($section === 'L' && Util::nowMs() < (int) $a['section_deadline_ms'] - self::listeningReviewMs($mock)) {
             throw new HttpError(422, 'listening_running', "Listening audiosi tugamaguncha bo'limni yakunlab bo'lmaydi.");
@@ -514,6 +581,7 @@ final class AttemptService
             return $a;
         }
         $mock ??= MockService::find((int) $a['mock_id']);
+        $proctor = MockService::settings($mock)['proctoring'];
         $newViolations = 0;
         // Qoidabuzarliklar birinchi ko'rib chiqiladi — ko'p ma'lumot hodisasi ularni "siqib chiqara" olmaydi.
         $events = array_values(array_filter($events, 'is_array'));
@@ -521,7 +589,8 @@ final class AttemptService
             <=> (int) !in_array($y['type'] ?? '', self::VIOLATION_TYPES, true));
         foreach (array_slice($events, 0, self::MAX_EVENTS_PER_REQUEST) as $event) {
             $type = (string) ($event['type'] ?? '');
-            $isViolation = in_array($type, self::VIOLATION_TYPES, true);
+            $isViolation = in_array($type, self::VIOLATION_TYPES, true)
+                || (isset(self::PROCTOR_VIOLATIONS[$type]) && $proctor[self::PROCTOR_VIOLATIONS[$type]] === 'required');
             if (!$isViolation && !in_array($type, self::INFO_TYPES, true)) {
                 continue;
             }
@@ -663,6 +732,7 @@ final class AttemptService
         if ($speaking['from'] !== null && $now < $speaking['from']) {
             throw new HttpError(403, 'speaking_not_yet', "Speaking " . date('d.m.Y H:i', $speaking['from']) . " dan boshlanadi.");
         }
+        self::assertProctoring($a, $mock);
         $meta = self::meta($a);
         $meta['speaking'] = ['started_ms' => Util::nowMs(), 'begun' => []];
         return self::persist($a, ['stage_state' => 'active', 'meta_json' => Util::json($meta)]);
@@ -681,7 +751,8 @@ final class AttemptService
         $questions = self::speakingQuestions($mock);
         $index = count($begun);
         // Oldingi savol vaqti tugamaguncha keyingisi ochilmaydi (savollarni oldindan ko'rib bo'lmaydi).
-        if ($index > 0) {
+        // Administrator "javobni erta tugatish"ga ruxsat bergan bo'lsa — o'quvchi o'zi keyingisiga o'tadi.
+        if ($index > 0 && !MockService::settings($mock)['flow']['speaking_skip']) {
             $previous = $questions[$index - 1];
             $readyAt = (int) $begun[(string) $previous['no']] + self::speakingWindowMs($previous)
                 - self::SPEAKING_OVERHEAD_MS - self::SPEAKING_NEXT_TOLERANCE_MS;
@@ -806,6 +877,11 @@ final class AttemptService
                 'lockdown' => $settings['lockdown'],
                 'break_sec' => $settings['break_sec'],
                 'speaking_mode' => $settings['speaking']['mode'],
+                'flow' => $settings['flow'],
+                'proctoring' => $settings['proctoring'] + [
+                    'video_kbps' => Settings::int('rec_video_kbps'),
+                    'segment_sec' => Settings::int('rec_segment_min') * 60,
+                ],
             ],
             'candidate' => ['name' => $user['full_name']],
             'now' => Util::nowMs(),

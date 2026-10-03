@@ -91,8 +91,11 @@ export class Microphone {
     });
   }
 
-  /** Belgilangan vaqt davomida yozish. @returns {Promise<{blob: Blob, duration: number}>} */
-  record(seconds, onTick) {
+  /**
+   * Belgilangan vaqt davomida yozish. control.stop() — erta tugatish (administrator ruxsat bergan bo'lsa).
+   * @returns {Promise<{blob: Blob, duration: number}>}
+   */
+  record(seconds, onTick, control = null) {
     return new Promise((resolve, reject) => {
       const mime = pickMime();
       let recorder;
@@ -116,6 +119,11 @@ export class Microphone {
         onTick && onTick(Math.max(0, left));
         if (left <= 0 && recorder.state === 'recording') recorder.stop();
       }, 200);
+      if (control) {
+        control.stop = () => {
+          if (recorder.state === 'recording') recorder.stop();
+        };
+      }
       recorder.start(1000);
     });
   }
@@ -264,15 +272,24 @@ export class SpeakingRunner {
     }
   }
 
-  countdown(seconds, label, container) {
+  /** Tayyorlanish taymeri. skipLabel berilsa — tugma bilan erta tugatish mumkin. */
+  countdown(seconds, label, container, skipLabel = null) {
     return new Promise((resolve) => {
       const value = h('span', { class: 'cd-value' });
-      container.replaceChildren(h('div', { class: 'countdown' }, h('span', { class: 'cd-label', text: label }), value));
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+      const skip = skipLabel ? h('button', { class: 'btn btn-sm cd-skip', type: 'button', onclick: finish }, skipLabel) : null;
+      container.replaceChildren(h('div', { class: 'countdown' }, h('span', { class: 'cd-label', text: label }), value, skip));
       const end = performance.now() + seconds * 1000;
       const loop = () => {
+        if (done) return;
         const left = end - performance.now();
         setText(value, formatClock(left));
-        if (left <= 0) resolve();
+        if (left <= 0) finish();
         else setTimeout(loop, 200);
       };
       loop();
@@ -341,12 +358,17 @@ export class SpeakingRunner {
         timerSlot.replaceChildren(h('div', { class: 'countdown' }, h('span', { class: 'cd-label', text: T.listenQuestion })));
         await this.playQuestionAudio(q.audio);
       }
-      if (q.prep_sec > 0) await this.countdown(q.prep_sec, T.prepare, timerSlot);
+      if (q.prep_sec > 0) await this.countdown(q.prep_sec, T.prepare, timerSlot, this.o.skip ? T.skipPrep : null);
       await this.o.mic.beep();
       meterSlot.replaceChildren(this.o.mic.meter());
       const value = h('span', { class: 'cd-value' });
-      timerSlot.replaceChildren(h('div', { class: 'countdown recording' }, h('span', { class: 'rec-dot' }), h('span', { class: 'cd-label', text: T.speakNow }), value));
-      const result = await this.o.mic.record(q.answer_sec, (left) => setText(value, formatClock(left)));
+      // Administrator ruxsat bergan bo'lsa: javobni vaqt tugamasdan yakunlab, keyingi savolga o'tish.
+      const control = this.o.skip ? {} : null;
+      const stopBtn = control
+        ? h('button', { class: 'btn btn-sm cd-skip', type: 'button', onclick: () => control.stop && control.stop() }, T.finishAnswer)
+        : null;
+      timerSlot.replaceChildren(h('div', { class: 'countdown recording' }, h('span', { class: 'rec-dot' }), h('span', { class: 'cd-label', text: T.speakNow }), value, stopBtn));
+      const result = await this.o.mic.record(q.answer_sec, (left) => setText(value, formatClock(left)), control);
       meterSlot.replaceChildren();
       this.enqueue(q.no, result.blob, result.duration);
     }

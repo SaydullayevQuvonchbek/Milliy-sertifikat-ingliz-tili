@@ -33,6 +33,14 @@ Imtihon oynasi IELTS CD (computer-delivered) uslubida qurilgan.
 - Nusxa olish, kesish, joylashtirish, fayl tashlash, sichqonchaning o'ng tugmasi, chop etish va klaviatura yorliqlari (Ctrl+C/V/S/P/U/F, F12, F5 va boshqalar) o'chirilgan. Chrome va Edge'da to'liq ekran rejimida **Keyboard Lock API** ham yoqiladi: Esc va ayrim tizim tugmalari sahifada ushlab qolinadi.
 - Bitta imtihon — bitta oyna: ikkinchi oyna yoki qurilmada ochilsa, birinchisi yopiladi va bu qoidabuzarlik sifatida yoziladi.
 - Speaking'da keyingi savol oldingisining vaqti tugamaguncha ochilmaydi; ruxsat etilgan vaqtdan uzun yozuv qabul qilinmaydi.
+  Mock sozlamasida **"javobni erta tugatib keyingi savolga o'tish"** yoqilsa — o'quvchi tayyorlanishni o'tkazib yuborib,
+  javobini aytib bo'lgach keyingi savolga o'tadi. **"Bo'limni vaqt tugamasdan yakunlash"** ni o'chirib qo'yish ham mumkin —
+  unda bo'lim faqat vaqt tugaganda yopiladi (serverda ham tekshiriladi).
+- **Video nazorat.** Listening/Reading/Writing'da o'quvchi ekrani va kamerasi bitta videoga, Speaking'da kamera va ovoz
+  yoziladi; 15 soniyalik bo'laklarda serverga, u yerdan 10 daqiqalik fayllar bilan Telegram kanalga yuboriladi (yozma qism
+  videolari yuborilgach serverdan o'chadi, Speaking videolari qoladi). Har mock uchun: o'chiq / bo'lsa yoziladi (kamerasiz
+  ham topshiradi, natijada belgi) / majburiy. Ekran ulashishni to'xtatish yoki kamerani uzish jurnalga yoziladi (majburiy
+  bo'lsa — qoidabuzarlik), bir nechta monitor ham belgilanadi. Sozlash: `deploy/SERVERGA-JOYLASH.md`, 10-bo'lim.
 - Safe Exam Browser va telefon cheklovi imtihon davomidagi har bir so'rovda tekshiriladi.
 - Qoidabuzarliklar soni chegaradan oshsa (sozlamada, standart — 3 ta), imtihon avtomatik to'xtatiladi. "Faqat jurnalga yozish" rejimi ham bor.
 - Writing'da yozish jarayoni statistikasi saqlanadi: bosilgan tugmalar soni, bloklangan paste urinishlari, birdaniga paydo bo'lgan katta matn bo'laklari.
@@ -62,7 +70,8 @@ Imtihon oynasi IELTS CD (computer-delivered) uslubida qurilgan.
 - **Natijalar.** Jadval, Excel (CSV), qayta hisoblash, Rasch tahlili, natijalarni e'lon qilish. Savollar tahlili: har savol bo'yicha
   to'g'ri javoblar ulushi, qiyinlik va eng ko'p uchragan noto'g'ri javoblar; gap-fill javobini bir tugma bilan kalitga
   qo'shish (barcha natijalar avtomatik qayta hisoblanadi).
-- **Urinish tafsiloti.** Har savolga berilgan javob, Writing matnlari, Speaking yozuvlari, ekspert baholari va hodisalar jurnali.
+- **Urinish tafsiloti.** Har savolga berilgan javob, Writing matnlari, Speaking yozuvlari, video yozuvlar (ko'rish, yuklab
+  olish, Telegram'dagi xabarga havola), ekspert baholari va hodisalar jurnali.
   Texnik nosozlikda urinishni sababi bilan bekor qilish (o'quvchiga urinish qaytariladi) yoki imtihonni to'xtatish.
 - **Foydalanuvchilar.** O'quvchilarni ro'yxat bilan qo'shish (Excel'dan nusxalash), parollarni chop etish, bloklash.
 
@@ -161,7 +170,7 @@ location ~ /\.(?!well-known/) { deny all; }   # .user.ini va boshqa yashirin fay
 add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
 add_header X-Frame-Options DENY always;
 add_header X-Content-Type-Options nosniff always;
-add_header Permissions-Policy "camera=(), geolocation=(), microphone=(self), fullscreen=(self)" always;
+add_header Permissions-Policy "camera=(self), display-capture=(self), geolocation=(), microphone=(self), fullscreen=(self)" always;
 ```
 
 ### Zaxira nusxa
@@ -176,6 +185,18 @@ Har tur o'zicha saqlanadi (`--keep` — shu turdagi eng yangi nusxalar soni). Cr
 — to'liq nusxa yuklangan fayllar hajmicha joy oladi. SQLite'da imtihon davomida ham xavfsiz. MySQL'da `mysqldump`
 (yoki `mariadb-dump`) bo'lsa u ishlatiladi, bo'lmasa yoki hostingda `exec()` o'chiq bo'lsa — PHP'ning o'zi izchil SQL dump
 yozadi. Tiklash: ZIP'ni oching, `database.sqlite` (yoki `dump.sql`) va `uploads/` ni joyiga qo'ying.
+Video yozuvlar (`storage/recordings/`) zaxira nusxaga kirmaydi — ular Telegram kanalda saqlanadi.
+
+### Video nazorat navbati (Telegram)
+
+```bash
+php bin/recordings.php            # cron: har daqiqada — uzilgan yozuvlarni yig'adi, eskilarini o'chiradi, Telegram'ga yuboradi
+php bin/recordings.php --test     # kanal(lar)ga sinov xabari
+php bin/recordings.php --status   # navbat holati
+```
+
+`config/config.php` dagi `telegram` bo'limi: `bot_token`, `chat_id`, ixtiyoriy `speaking_chat_id`, `api_base` (relay) va
+`proxy`. Server Rossiyada bo'lsa `api.telegram.org` bloklangan — relay yoki proxy kerak (yo'riqnomaning 10-bo'limi).
 
 ---
 
@@ -220,12 +241,12 @@ Speaking 8 savol (savollar ekzaminator ovozida o'qiladi) va 3 ta rasm. Qiyinlik 
 ## Testlar
 
 ```bash
-php tests/php/run.php            # 72 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, zaxira, tayyor mocklar
+php tests/php/run.php            # 92 ta PHP testi: baholash, Rasch, urinishlar, taymerlar, ekspertlar, xavfsizlik, zaxira, video nazorat va Telegram navbati
 MOCK_TEST_DB=mysql php tests/php/run.php   # xuddi shular MySQL/MariaDB da (MOCK_TEST_MYSQL_HOST/PORT/DB/USER/PASS; bazani tozalaydi!)
-node --test tests/js/*.test.mjs  # JS testlari: Listening vaqt jadvali (server bilan bir xil), so'z sanash
-npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright): o'quvchi, admin va ekspert  (MOCK_E2E_DB=mysql ham mumkin)
+node --test tests/js/*.test.mjs  # JS testlari: Listening vaqt jadvali (server bilan bir xil), so'z sanash, video format va kadr joylashuvi
+npm install && npm run test:e2e  # brauzerda to'liq ssenariy (Playwright, soxta kamera/ekran va soxta Telegram): o'quvchi, admin, ekspert (MOCK_E2E_DB=mysql ham mumkin; MOCK_E2E_SHOTS=papka — ekran rasmlari)
 npm run test:content             # tayyor 3 mock brauzerda: 78 audio ochiladi va davomiyligi mos, rasmlar, Range, javob kaliti sirtqi
-npm run test:load -- --students 150   # yuklama sinovi: ko'p o'quvchi bir vaqtda ishlaydi (MOCK_LOAD_DB=mysql ham mumkin)
+npm run test:load -- --students 150 --video 250   # yuklama sinovi: ko'p o'quvchi bir vaqtda, video bo'laklari bilan (MOCK_LOAD_DB=mysql ham mumkin)
 ```
 
 Barchasi GitHub Actions'da ham ishlaydi (SQLite, MySQL, E2E, tayyor mocklar, yuklama). Sinalmagan: Firefox va Safari
@@ -245,11 +266,11 @@ public/                 veb-ildiz
 src/                    PHP: marshrutlar, kontrollerlar, xizmatlar (urinishlar, baholash, Rasch, ekspertlar)
 database/               SQLite va MySQL sxemalari
 content/                tayyor mocklar (mocks/mock-01…03: savollar, audio, rasmlar), TTS va rasm vositalari (tools/)
-bin/                    o'rnatish, tayyor/namunaviy mocklarni joylash, zaxira nusxa, lokal server marshrutlovchisi
+bin/                    o'rnatish, tayyor/namunaviy mocklarni joylash, zaxira nusxa, video navbati (Telegram), lokal server marshrutlovchisi
 deploy/                 serverga yuklash paketi: build.py, yo'riqnoma, ildiz .htaccess va public/.user.ini
 demo/                   namunaviy (sinov uchun) mocklar
 tests/                  PHP, JS, E2E, tayyor mocklar va yuklama testlari
-storage/                baza, audio, rasmlar, Speaking yozuvlari (git'ga qo'shilmaydi)
+storage/                baza, audio, rasmlar, Speaking yozuvlari, video yozuvlar (recordings/) (git'ga qo'shilmaydi)
 ```
 
 ## Rejada (hozircha kerak emas)
