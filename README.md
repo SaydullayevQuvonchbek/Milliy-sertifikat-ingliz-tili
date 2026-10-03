@@ -101,7 +101,8 @@ Bo'sh Writing yoki yozuvsiz Speaking avtomatik 0 bilan baholanadi va ekspert nav
 
 - PHP 8.1 yoki yangiroq: `pdo_sqlite` yoki `pdo_mysql`, `mbstring`, `fileinfo`, `intl` (tavsiya), `gd` (faqat namunaviy rasmlar uchun).
 - Apache (`mod_rewrite`) yoki Nginx.
-- HTTPS (mikrofon va to'liq ekran uchun brauzerlar xavfsiz ulanishni talab qiladi; `localhost` bundan mustasno).
+- HTTPS (mikrofon, kamera, ekran yozuvi va klaviatura qulfi uchun brauzerlar xavfsiz ulanishni talab qiladi;
+  `localhost` bundan mustasno). http:// da o'quvchiga sababi aytiladi, admin panelda ogohlantirish chiqadi.
 
 ### Lokal ishga tushirish
 

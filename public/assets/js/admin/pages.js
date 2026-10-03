@@ -4,7 +4,7 @@ import { del, get, post, put } from '../lib/api.js';
 import { h, icon, setText } from '../lib/dom.js';
 import { formatClock, formatDate } from '../lib/text.js';
 import { confirmDialog, errorBox, spinner, toast } from '../lib/ui.js';
-import { EVENT, MOCK_STATUS, STAGE, checkbox, field, pageHeader, statusBadge, table } from './common.js';
+import { EVENT, MOCK_STATUS, STAGE, checkbox, field, httpsAlert, pageHeader, statusBadge, table } from './common.js';
 
 const SECTION_SHORT = { L: 'L', R: 'R', W: 'W', S: 'S' };
 
@@ -328,6 +328,7 @@ function recordingsCard(settings) {
     card.replaceChildren(h('div', { class: 'tg-card' },
       title,
       h('p', { class: 'muted small', text: "Ekran va kamera yozuvlari 10 daqiqalik fayllarda serverga keladi va navbat orqali Telegram kanalga yuboriladi. Yozma qism videolari yuborilgach serverdan o'chiriladi; Speaking videolari serverda ham saqlanadi. Har mock uchun yoqish/o'chirish: Mock → Umumiy → Video nazorat." }),
+      httpsAlert(),
       h('div', { class: 'tg-status small' },
         tg.configured
           ? h('div', null, h('span', { class: 'ok', text: 'Telegram sozlangan' }), ` · bot ${tg.token} · kanal ${tg.chat}${tg.speaking_chat ? ` · Speaking kanali ${tg.speaking_chat}` : ''} · ${tg.relay ? `relay: ${tg.api_host}` : 'to\'g\'ridan-to\'g\'ri (api.telegram.org)'}${tg.proxy ? ' · proxy orqali' : ''}`)

@@ -1,6 +1,6 @@
 // Admin panel uchun umumiy yordamchilar: sarlavha, jadval, holat belgisi, forma maydonlari.
 
-import { h } from '../lib/dom.js';
+import { h, icon } from '../lib/dom.js';
 
 export const MOCK_STATUS = {
   draft: 'Qoralama',
@@ -65,6 +65,7 @@ export const PROCTOR_STATE = {
   denied: 'rad etildi',
   wrong: "butun ekran emas",
   unsupported: "brauzer qo'llamaydi",
+  insecure: 'sayt HTTPS emas',
   error: 'xato',
   stopped: "to'xtatildi",
   lost: 'uzildi',
@@ -73,6 +74,16 @@ export const PROCTOR_STATE = {
 
 export function statusBadge(status, labels = MOCK_STATUS) {
   return h('span', { class: `status status-${status}` }, labels[status] || status);
+}
+
+/** Sayt http:// da ochilgan bo'lsa — kamera, ekran va mikrofon ishlamasligi haqida ogohlantirish (aks holda null). */
+export function httpsAlert() {
+  if (window.isSecureContext !== false) return null;
+  return h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', {
+    text: "Sayt hozir http:// orqali ochilgan. Brauzerlar kamera, ekran va mikrofonga faqat https:// saytlarda ruxsat beradi: "
+      + "SSL o'rnatilmaguncha video yozilmaydi (o'quvchida «sayt HTTPS emas» belgisi turadi) va Speaking'da ovoz yozib bo'lmaydi. "
+      + "Hosting panelida SSL sertifikatini (Let's Encrypt) yoqing va http → https yo'naltirishni o'rnating.",
+  }));
 }
 
 export function pageHeader(title, ...actions) {

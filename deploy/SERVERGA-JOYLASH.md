@@ -25,7 +25,9 @@ fayllar, zaxira nusxa (SQLite, mysqldump, PHP dump — qayta yuklanganda jadvall
   Apache ham bo'ladi (masud-mamurovich.uz hostingi shunday — `.htaccess` qoidalari bajariladi).
   **Faqat nginx** bo'lgan hosting `.htaccess` ni umuman o'qimaydi: u yerda faqat A joylashuvi va README dagi nginx
   sozlamasi bilan ishlating (sinovda `.htaccess` siz C joylashuvida `.user.ini` va mocklarning transkriptlari ochilib qoldi).
-- **HTTPS majburiy**: mikrofon (Speaking) va to'liq ekran (lockdown) brauzerlarda faqat HTTPS da ishlaydi.
+- **HTTPS majburiy**: mikrofon (Speaking), kamera va ekran yozuvi (video nazorat) hamda klaviatura qulfi (lockdown)
+  brauzerlarda faqat HTTPS da ishlaydi. Sayt http:// da ochilsa, o'quvchiga «sayt https:// emas» deb aytiladi, admin
+  panelda ogohlantirish chiqadi.
 - **MySQL 8 / MariaDB 10.x tavsiya etiladi** (50–150 o'quvchi bir vaqtda). SQLite faqat kichik guruh uchun: unda bir vaqtda
   bitta yozuvchi bo'ladi. Sxema `utf8mb4_unicode_ci`, InnoDB; JSON/CHECK/DATETIME ishlatilmagan.
 - PHP sozlamalari: paketdagi `public/.user.ini` (PHP-FPM, CGI va LiteSpeed hostinglarda avtomatik o'qiladi)
@@ -244,7 +246,7 @@ ishlaydi — standart qiymatlar olinadi (Telegram'siz videolar faqat serverda sa
 | `curl -I` da CSP yo'q | `mod_headers` yo'q — sayt ishlaydi, hostingdan yoqishni so'rang; yangilashdan keyin brauzerda Ctrl+F5 |
 | Mockni saqlash/o'chirish ishlamaydi, qolgani ishlaydi | Hosting PUT/DELETE metodlarini bloklagan (ModSecurity) — hostingdan subdomen uchun ochishni so'rang |
 | Audio yoki rasm yuklanmaydi (admin) | `upload_max_filesize` / `post_max_size` kichik (`.user.ini` o'qilmayapti — panelda 64M qiling); "413 Request Entity Too Large" — hosting nginx'ining `client_max_body_size` chegarasi, hostingdan oshirishni so'rang; aks holda `storage/` huquqlari (4-bo'lim, 5-qadam) |
-| Mikrofon yoki to'liq ekran ishlamaydi | Sayt HTTP da ochilgan — HTTPS majburiy; yoki brauzerda mikrofonga ruxsat berilmagan |
+| Mikrofon, kamera yoki ekran ishlamaydi («sayt https:// emas»; natijada «kamerasiz/ekransiz» — sababi «sayt HTTPS emas») | Sayt HTTP da ochilgan — SSL sertifikatini (Let's Encrypt) o'rnating va "Force HTTPS" ni yoqing; yoki brauzerda mikrofon/kameraga ruxsat berilmagan |
 | "Bu mockni telefonda ishlab bo'lmaydi…" | Telefon/Android planshet; ruxsat berish — 2-bo'lim |
 | Kirish sekin (imtihon boshida) | Parol xeshi ataylab sekin (`password_cost`); o'quvchilarni 5–10 daqiqa oralig'ida kiriting |
 | Brauzer konsolida `419 Page Expired` | Sessiya muddati o'tgan (12 soat) yoki boshqa oynada chiqilgan — sahifani yangilang. Xatolik emas |
@@ -264,11 +266,15 @@ gacha, kamera pastki o'ng burchakda, ustida nomzod kodi, bo'lim va vaqt). Speaki
 brauzer kutadi, sahifa yangilansa yozuv yangi faylda davom etadi (oxirgi ~15 soniya yo'qolishi mumkin). Har mock uchun alohida yoqiladi
 (**Mocklar → mock → Umumiy → Video nazorat**): kamera va ekran — "O'chiq", "Bo'lsa yoziladi" (rad etsa yoki kamera yo'q
 bo'lsa imtihon davom etadi, natijalar jadvalida "kamerasiz"/"ekransiz" belgisi turadi — bo'lim boshlanganda yoki bo'lim
-davomida qurilma ishlamagan bo'lsa) yoki "Majburiy" (ishlamasa imtihon boshlanmaydi; ekran ulashishni to'xtatish va
-kamerani uzish qoidabuzarlik hisoblanadi). Speaking'da faqat kamera so'raladi. **Standart — "Bo'lsa yoziladi", eski
+davomida qurilma ishlamagan bo'lsa) yoki "Majburiy" (ishlamasa boshlash tugmasi ochilmaydi; ekran ulashishni to'xtatish
+va kamerani uzish qoidabuzarlik hisoblanadi). Eslatma: qoidalar sahifasida berilgan vaqt (odatda 30 daqiqa) tugaguncha
+kutib qolgan o'quvchining birinchi bo'limi "Majburiy" bo'lsa ham o'zi boshlanadi (vaqt bilan o'ynashning oldini olish
+uchun) — bunda natijada "kamerasiz"/"ekransiz" belgisi turadi. Speaking'da faqat kamera so'raladi. **Standart — "Bo'lsa yoziladi", eski
 mocklarda ham:** yangilanishdan keyin barcha imtihonlarda kamera va ekran so'raladi; kerak bo'lmagan mockda "O'chiq"
 qiling. Ekranni ulashish to'xtatilsa — ogohlantirish va "Ekranni qayta ulashish" tugmasi chiqadi; sahifa yangilansa
-(tanaffusda ham) kamera va ekran qayta so'raladi.
+(tanaffusda ham) kamera va ekran qayta so'raladi. **Faqat HTTPS saytda ishlaydi:** sayt http:// da ochilsa, brauzer
+kamera va ekranga umuman ruxsat bermaydi — o'quvchiga sababi aytiladi, "Bo'lsa yoziladi" rejimida imtihon videosiz
+davom etadi (belgi ustida «sayt HTTPS emas»), "Majburiy" rejimida boshlash tugmasi ochilmaydi.
 
 **Qayerga ketadi.** Server videolarni navbat bilan Telegram kanalga yuboradi (yozuv ostida: mock, o'quvchi, kod,
 bo'lim, vaqt, belgilar). **Yozma qism videolari kanalga yuborilgach serverdan o'chiriladi; Speaking videolari serverda

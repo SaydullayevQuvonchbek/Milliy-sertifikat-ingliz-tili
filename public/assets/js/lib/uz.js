@@ -164,6 +164,7 @@ export const T = {
   micAllow: 'Mikrofonga ruxsat berish',
   micDenied: "Mikrofonga ruxsat berilmadi. Brauzer sozlamalarida mikrofonga ruxsat bering va qayta urinib ko'ring.",
   micUnsupported: "Bu brauzer ovoz yozishni qo'llab-quvvatlamaydi. Google Chrome'ning so'nggi versiyasidan foydalaning.",
+  micInsecure: "Sayt xavfsiz ulanishsiz (http://) ochilgan — brauzer mikrofonga ruxsat bermaydi. Imtihon tashkilotchisiga xabar bering.",
   micTest: '5 soniya yozib ko\'rish',
   micOk: 'Mikrofon ishlayapti',
   startSpeakingNow: "Speaking'ni boshlash",
@@ -184,10 +185,15 @@ export const T = {
   skipHint: "Javobingiz tayyor bo'lsa, vaqt tugashini kutmasdan keyingi savolga o'tishingiz mumkin.",
 
   // Video nazorat
-  procTitle: 'Kamera va ekran yozuvi',
-  procNotice: "Imtihon davomida ekraningiz va kamerangiz yozib olinadi. Yozuvlar faqat imtihon nazorati uchun ishlatiladi.",
+  // cam/scr — mock sozlamasida kamera/ekran yozuvi yoqilganmi (matn faqat yoqilganlarini aytadi).
+  procTitle: (cam, scr) => (cam && scr ? 'Kamera va ekran yozuvi' : cam ? 'Kamera yozuvi' : 'Ekran yozuvi'),
+  procNotice: (cam, scr) => `Imtihon davomida ${cam && scr ? 'ekraningiz va kamerangiz' : cam ? 'kamerangiz' : 'ekraningiz'} yozib olinadi. Yozuvlar faqat imtihon nazorati uchun ishlatiladi.`,
   procNoticeSpeaking: "Speaking javoblaringiz kamera va ovoz bilan yozib olinadi.",
-  rulesProctor: "Imtihon davomida ekran va kamera yozib olinadi. Ekran ulashishni to'xtatish yoki kamerani o'chirish jurnalga yoziladi.",
+  rulesProctor: (cam, scr) => (cam && scr
+    ? "Imtihon davomida ekran va kamera yozib olinadi. Ekran ulashishni to'xtatish yoki kamerani o'chirish jurnalga yoziladi."
+    : cam
+      ? "Imtihon davomida kamera yozib olinadi. Kamerani o'chirish jurnalga yoziladi."
+      : "Imtihon davomida ekran yozib olinadi. Ekran ulashishni to'xtatish jurnalga yoziladi."),
   camLabel: 'Kamera',
   camEnable: 'Kamerani yoqish',
   camOk: 'Kamera ishlayapti',
@@ -207,6 +213,8 @@ export const T = {
   scrRequired: "Bu imtihonda ekran yozib olinadi — ulashmasdan boshlab bo'lmaydi.",
   multiScreen: "Kompyuterga bir nechta monitor ulangan. Imtihon vaqtida qo'shimcha monitorni o'chiring.",
   recUnsupported: "Bu brauzer video yozishni qo'llab-quvvatlamaydi. Google Chrome'ning so'nggi versiyasidan foydalaning.",
+  httpsShort: "Yoqib bo'lmaydi — sayt https:// emas",
+  httpsNeeded: "Sayt xavfsiz ulanishsiz (http://) ochilgan. Brauzerlar kamera, ekran va mikrofonga faqat https:// saytlarda ruxsat beradi — bu haqda imtihon tashkilotchisiga xabar bering.",
   recBadge: 'Yozilmoqda',
   screenStoppedTitle: "Ekran yozuvi to'xtadi",
   screenStoppedText: "Ekran ulashish to'xtatildi. Imtihonni davom ettirish uchun ekranni qayta ulashing.",

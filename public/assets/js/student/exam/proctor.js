@@ -65,6 +65,20 @@ export class Proctor {
     this.supported = Boolean(window.MediaRecorder && HTMLCanvasElement.prototype.captureStream);
     this.everRecorded = false;
     this.speaking = false;
+    // Sayt http:// da ochilgan bo'lsa, brauzer kamera, ekran va mikrofonga umuman ruxsat bermaydi — so'rash befoyda.
+    // O'quvchiga "brauzeringiz eski" degan noto'g'ri xabar o'rniga sababi aytiladi, adminga "HTTPS emas" belgisi boradi.
+    this.insecure = window.isSecureContext === false;
+    if (this.insecure && this.enabled) {
+      if (this.camera.mode !== 'off') {
+        this.camera.status = 'insecure';
+        this.report('camera_none', 'Sayt HTTPS emas');
+      }
+      if (this.screen.mode !== 'off') {
+        this.screen.status = 'insecure';
+        this.report('screen_unsupported', 'Sayt HTTPS emas');
+      }
+      this.sendStatus();
+    }
   }
 
   get enabled() {
@@ -117,7 +131,7 @@ export class Proctor {
 
   async enableCamera() {
     const cam = this.camera;
-    if (cam.mode === 'off') return;
+    if (cam.mode === 'off' || this.insecure) return;
     if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
     cam.stream = null;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !this.supported) {
@@ -146,7 +160,7 @@ export class Proctor {
 
   async enableScreen() {
     const scr = this.screen;
-    if (scr.mode === 'off') return;
+    if (scr.mode === 'off' || this.insecure) return;
     if (scr.stream) scr.stream.getTracks().forEach((t) => t.stop());
     scr.stream = null;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !this.supported) {
@@ -232,6 +246,8 @@ export class Proctor {
   /** Kamera va ekranni yoqish kartasi. Holat o'zgarganda o'zi yangilanadi. */
   gateCard({ speaking = false } = {}) {
     if (!this.enabled) return null;
+    // Speaking'da faqat kamera so'raladi — kamera o'chiq bo'lsa, so'raladigan narsa yo'q.
+    if ((speaking || this.speaking) && this.camera.mode === 'off') return null;
     const box = h('div', { class: 'proctor-check' });
     const preview = h('video', { class: 'proctor-preview', muted: true, autoplay: true, playsinline: true });
     preview.muted = true;
@@ -250,8 +266,8 @@ export class Proctor {
       const rows = [];
       const cam = this.camera;
       if (cam.mode !== 'off') {
-        const text = { ok: T.camOk, denied: T.camDenied, none: T.camNone, error: T.camError, unsupported: T.recUnsupported, lost: T.cameraLostTitle }[cam.status] || '';
-        const btn = cam.status === 'ok' ? null : h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
+        const text = { ok: T.camOk, denied: T.camDenied, none: T.camNone, error: T.camError, unsupported: T.recUnsupported, insecure: T.httpsShort, lost: T.cameraLostTitle }[cam.status] || '';
+        const btn = cam.status === 'ok' || cam.status === 'insecure' ? null : h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
           e.currentTarget.disabled = true;
           await this.enableCamera();
         } }, icon('camera'), cam.status === 'idle' ? T.camEnable : T.retry);
@@ -260,8 +276,8 @@ export class Proctor {
       }
       const scr = this.screen;
       if (scr.mode !== 'off' && !speaking && !this.speaking) {
-        const text = { ok: T.scrOk, denied: T.scrDenied, wrong: T.scrWrong, error: T.scrDenied, unsupported: T.scrUnsupported, stopped: T.screenStoppedTitle }[scr.status] || '';
-        const btn = scr.status === 'ok' ? null : h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
+        const text = { ok: T.scrOk, denied: T.scrDenied, wrong: T.scrWrong, error: T.scrDenied, unsupported: T.scrUnsupported, insecure: T.httpsShort, stopped: T.screenStoppedTitle }[scr.status] || '';
+        const btn = scr.status === 'ok' || scr.status === 'insecure' ? null : h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
           e.currentTarget.disabled = true;
           await this.enableScreen();
         } }, icon('monitor'), scr.status === 'idle' ? T.scrEnable : T.retry);
@@ -275,9 +291,10 @@ export class Proctor {
       preview.hidden = !this.camera.stream;
       // replaceChildren(null) "null" matnini qo'shadi — bo'sh qiymatlar olib tashlanadi.
       box.replaceChildren(...[
-        h('h3', { text: T.procTitle }),
-        h('p', { class: 'muted small', text: speaking ? T.procNoticeSpeaking : T.procNotice }),
+        h('h3', { text: speaking || this.speaking ? T.procTitle(true, false) : T.procTitle(cam.mode !== 'off', scr.mode !== 'off') }),
+        h('p', { class: 'muted small', text: speaking || this.speaking ? T.procNoticeSpeaking : T.procNotice(cam.mode !== 'off', scr.mode !== 'off') }),
         h('div', { class: 'proctor-body' }, h('div', { class: 'proctor-rows' }, rows), preview),
+        this.insecure ? h('p', { class: 'proctor-warn small', text: T.httpsNeeded }) : null,
         this.screens > 1 ? h('p', { class: 'proctor-warn small', text: T.multiScreen }) : null,
       ].filter(Boolean));
     };

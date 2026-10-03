@@ -10,7 +10,7 @@ import { QuestionSection } from '../student/exam/questionSection.js';
 import { WritingSection } from '../student/exam/writing.js';
 import { SectionBuilder, speakingEditor, writingEditor } from './builder.js';
 import {
-  MOCK_STATUS, checkbox, copyText, downloadFile, field, fromLocalInput, numberInput, statusBadge, textArea, textInput, toLocalInput,
+  MOCK_STATUS, checkbox, copyText, downloadFile, field, fromLocalInput, httpsAlert, numberInput, statusBadge, textArea, textInput, toLocalInput,
 } from './common.js';
 import { listeningTemplate, readingTemplate, speakingTemplate, writingTemplate } from './templates.js';
 
@@ -304,6 +304,7 @@ export class MockEditor {
       ),
       h('div', { class: 'card' },
         h('h3', { text: 'Video nazorat (kamera va ekran)' }),
+        httpsAlert(),
         h('div', { class: 'row' },
           field('Kamera', select(s.proctoring, 'camera', [
             ['off', "O'chiq"],

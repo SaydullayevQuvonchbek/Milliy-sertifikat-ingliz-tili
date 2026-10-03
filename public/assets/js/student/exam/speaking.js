@@ -26,6 +26,8 @@ export class Microphone {
 
   async open() {
     if (this.stream) return this.stream;
+    // http:// sahifada brauzer mikrofonga umuman ruxsat bermaydi (sababi o'quvchiga aniq aytiladi).
+    if (window.isSecureContext === false) throw new Error('insecure');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || pickMime() === null) {
       throw new Error('unsupported');
     }
@@ -154,7 +156,8 @@ export function micCheck(mic, onReady) {
       testBtn.disabled = false;
       onReady(true);
     } catch (err) {
-      setText(status, err && err.message === 'unsupported' ? T.micUnsupported : T.micDenied);
+      const reason = err && err.message;
+      setText(status, reason === 'insecure' ? T.micInsecure : reason === 'unsupported' ? T.micUnsupported : T.micDenied);
       status.className = 'mic-status bad';
       onReady(false);
     }

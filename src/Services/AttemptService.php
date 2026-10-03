@@ -51,7 +51,8 @@ final class AttemptService
     /** Shu hodisalar mock sozlamasida tegishli nazorat "majburiy" bo'lsa qoidabuzarlik hisoblanadi. */
     private const PROCTOR_VIOLATIONS = ['screen_stopped' => 'screen', 'camera_lost' => 'camera'];
     /** Kamera/ekran holati (mijoz yuboradi). */
-    public const PROCTOR_STATES = ['off', 'ok', 'none', 'denied', 'wrong', 'unsupported', 'error', 'stopped', 'lost'];
+    /** 'insecure' — sayt http:// da ochilgan, brauzer kamera/ekranga umuman ruxsat bermaydi. */
+    public const PROCTOR_STATES = ['off', 'ok', 'none', 'denied', 'wrong', 'unsupported', 'insecure', 'error', 'stopped', 'lost'];
 
     // ---------------------------------------------------------------------
     // Yordamchilar

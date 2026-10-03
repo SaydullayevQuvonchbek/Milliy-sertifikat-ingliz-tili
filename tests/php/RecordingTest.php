@@ -191,6 +191,24 @@ test('belgilar: kamera yoqilib ekran hali so\'ralmagan holat belgi qo\'ymaydi; b
     ok(!empty($p['camera_missing']) && !empty($p['screen_missing']));
 });
 
+test('http:// sayt: "insecure" holati qabul qilinadi — ixtiyoriyda boshlanadi va belgi qo\'yiladi, majburiyda boshlanmaydi', function (): void {
+    [$a, $mock] = rec_setup();
+    $a = A::setProctorStatus($a, $mock, ['camera' => 'insecure', 'screen' => 'insecure']);
+    $p = Util::decode($a['meta_json'])['proctor'];
+    eq('insecure', $p['camera']);
+    eq('insecure', $p['screen']);
+    $a = A::startSection($a, $mock, 'L');
+    $p = Util::decode($a['meta_json'])['proctor'];
+    ok(!empty($p['camera_missing']) && !empty($p['screen_missing']), 'belgi: ' . json_encode($p));
+
+    [$b, $mockR] = rec_setup(['proctoring' => ['camera' => 'required', 'screen' => 'off']]);
+    $b = A::setProctorStatus($b, $mockR, ['camera' => 'insecure']);
+    throws(fn () => A::startSection($b, $mockR, 'L'), 'camera_required');
+    // Noma'lum holat e'tiborsiz qoldiriladi.
+    $b = A::setProctorStatus($b, $mockR, ['camera' => 'boshqa']);
+    eq('insecure', Util::decode($b['meta_json'])['proctor']['camera']);
+});
+
 test('sahifa yangilansa (claim) kamera/ekran holati o\'chadi: qayta yoqilmasa keyingi bo\'lim belgi bilan boshlanadi', function (): void {
     [$a, $mock] = rec_setup(['sections' => ['R', 'W']]);
     $a = A::setProctorStatus($a, $mock, ['camera' => 'ok', 'screen' => 'ok']);

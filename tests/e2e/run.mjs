@@ -4,7 +4,8 @@
 // Tekshiriladi: ro'yxatdan o'tish, mock boshlash, to'liq ekran, Listening audiosi va avtomatik o'tish,
 // qoidabuzarlik oynasi, sahifani yangilaganda javoblar saqlanishi, belgilash (highlight), Writing so'z
 // hisoblagichi, Speaking yozuvi, admin natijalari, urinishlar soni va mockni muzlatish;
-// video nazorat (soxta kamera va ekran): bo'laklar serverga, fayllar yig'iladi, soxta Telegram serveriga yuboriladi.
+// video nazorat (soxta kamera va ekran): bo'laklar serverga, fayllar yig'iladi, soxta Telegram serveriga yuboriladi;
+// sayt http:// da ochilganda kamera/ekran o'rniga sababi aytiladi va adminga "HTTPS emas" belgisi boradi.
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -121,7 +122,11 @@ function wav(seconds) {
 
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
-  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--auto-select-desktop-capture-source=Entire screen'],
+  args: [
+    '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--auto-select-desktop-capture-source=Entire screen',
+    // http://insecure.e2e — o'sha server, lekin brauzer uchun xavfsiz bo'lmagan manzil (HTTPS'siz sayt sinovi).
+    '--host-resolver-rules=MAP insecure.e2e 127.0.0.1',
+  ],
 });
 const pageErrors = [];
 
@@ -557,6 +562,103 @@ try {
     assert(detail.speaking.every((x) => x.duration < 20), 'javoblar erta tugatilmagan: ' + JSON.stringify(detail.speaking));
     const r = detail.meta.sections.R;
     assert(r.finished_ms - r.started_ms >= 59000, "Reading vaqt tugaganda yopilishi kerak: " + JSON.stringify(r));
+  });
+
+  await step("http:// (HTTPS'siz) sayt: kamera/ekran o'rniga sababi aytiladi, majburiy kamera bilan boshlanmaydi, admin «HTTPS emas» ni ko'radi", async () => {
+    const created = await call('POST', 'admin/mocks', { title: 'HTTP mock', max_attempts: 1 });
+    const id3 = created.mock.id;
+    const source = {
+      reading: {
+        parts: [{
+          title: 'Part 1', instructions: 'Read.', passage: { title: 'T', text: 'Short text about mountains.' },
+          blocks: [{ type: 'tfng', n: 1, prompt: 'Mountains are mentioned.', answer: 'TRUE' }],
+        }],
+      },
+    };
+    const settings = {
+      sections: ['R'], times: { reading: 60 }, break_sec: 10,
+      lockdown: { fullscreen: true, max_violations: 5, action: 'terminate' },
+      results: 'instant',
+      proctoring: { camera: 'optional', screen: 'optional' },
+    };
+    const updated = await call('PUT', `admin/mocks/${id3}`, { title: 'HTTP mock', max_attempts: 1, source, settings });
+    assert(updated.validation.errors.length === 0, 'tekshiruv xatolari: ' + JSON.stringify(updated.validation.errors));
+    await call('POST', `admin/mocks/${id3}/status`, { status: 'active' });
+
+    const insecure = `http://insecure.e2e:${port}`;
+    const contexts = [];
+    // Har tekshiruvga alohida o'quvchi: bitta o'quvchi bir vaqtda faqat bitta yozma imtihonni ochishi mumkin.
+    const student = async (name, phone) => {
+      const c = await browser.newContext({ viewport: { width: 1366, height: 820 } });
+      contexts.push(c);
+      const p = await c.newPage();
+      p.on('pageerror', (e) => pageErrors.push('[http] ' + e.message));
+      await p.goto(`${insecure}/#/register`);
+      assert(await p.evaluate(() => window.isSecureContext) === false, 'sinov sahifasi xavfsiz kontekstda ochildi (host xaritasi ishlamadi)');
+      await p.getByLabel('Ism va familiya').fill(name);
+      await p.getByLabel('Telefon raqami').fill(phone);
+      await p.getByLabel('Parol (kamida 6 ta belgi)').fill('secret1');
+      await p.getByRole('button', { name: "Ro'yxatdan o'tish" }).click();
+      return p;
+    };
+    try {
+      // Kamera majburiy (Flow mock): sababi aytiladi, yoqish tugmasi yo'q, boshlab bo'lmaydi.
+      let ip = await student('Http Talaba', '90 765 43 21');
+      await ip.locator('.mock-card', { hasText: 'Flow mock' }).getByRole('button', { name: 'Boshlash' }).click();
+      await ip.locator('.rules-card').waitFor();
+      await ip.getByLabel('Qoidalar bilan tanishdim va ularga roziman').check();
+      await ip.locator('.proctor-status.bad', { hasText: 'https:// emas' }).waitFor();
+      assert(await ip.getByRole('button', { name: 'Kamerani yoqish' }).count() === 0, "http:// da kamera tugmasi ko'rinmasligi kerak");
+      assert(await ip.locator('.proctor-warn', { hasText: 'http://' }).count() === 1, "https haqida ogohlantirish chiqmadi");
+      assert(await ip.getByRole('button', { name: "Reading bo'limini boshlash" }).isDisabled(), "kamera majburiy — http:// da boshlanmasligi kerak");
+      await shot(ip, '13-http-gate');
+
+      // Ixtiyoriy (HTTP mock): imtihon boshlanadi, serverda holat "insecure" va "kamerasiz/ekransiz" belgisi.
+      ip = await student('Http Ikkinchi', '90 765 43 22');
+      await ip.locator('.mock-card', { hasText: 'HTTP mock' }).getByRole('button', { name: 'Boshlash' }).click();
+      await ip.locator('.rules-card').waitFor();
+      await ip.getByLabel('Qoidalar bilan tanishdim va ularga roziman').check();
+      assert(await ip.getByRole('button', { name: 'Ekranni ulashish' }).count() === 0, "http:// da ekran tugmasi ko'rinmasligi kerak");
+      await ip.getByRole('button', { name: "Reading bo'limini boshlash" }).click();
+      await ip.locator('.exam .eh-section', { hasText: 'Reading' }).waitFor();
+      const res = await call('GET', `admin/mocks/${id3}/attempts`);
+      let detail = null;
+      for (let i = 0; i < 40; i += 1) {
+        detail = await call('GET', `admin/attempts/${res.attempts[0].id}`);
+        if (detail.events.some((e) => e.type === 'camera_none' && e.detail === 'Sayt HTTPS emas')) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      const pr = detail.meta.proctor || {};
+      assert(pr.camera === 'insecure' && pr.screen === 'insecure', 'server holati: ' + JSON.stringify(pr));
+      assert(pr.camera_missing && pr.screen_missing, "kamerasiz/ekransiz belgisi qo'yilmadi: " + JSON.stringify(pr));
+      assert(detail.events.some((e) => e.type === 'camera_none' && e.detail === 'Sayt HTTPS emas'), 'jurnalda HTTPS sababi yo\'q');
+      assert(detail.events.some((e) => e.type === 'screen_unsupported' && e.detail === 'Sayt HTTPS emas'), 'jurnalda ekran sababi yo\'q');
+
+      // Admin panel http:// da: video sozlamalari yonida HTTPS ogohlantirishi.
+      const ac = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+      contexts.push(ac);
+      const ap = await ac.newPage();
+      ap.on('pageerror', (e) => pageErrors.push('[http admin] ' + e.message));
+      await ap.goto(`${insecure}/#/login`);
+      await ap.getByLabel('Telefon raqami yoki login').fill('admin');
+      await ap.getByLabel('Parol', { exact: true }).fill('admin12345');
+      await ap.getByRole('button', { name: 'Kirish', exact: true }).click();
+      await ap.waitForURL(/admin/);
+      await ap.goto(`${insecure}/admin/#/settings`);
+      const recCard = ap.locator('.card', { has: ap.locator('h3', { hasText: 'Video yozuvlar va Telegram' }) });
+      await recCard.locator('.tg-status').waitFor();
+      assert(await recCard.locator('.alert-warn', { hasText: 'http://' }).count() === 1, "sozlamalarda HTTPS ogohlantirishi yo'q");
+      await recCard.scrollIntoViewIfNeeded();
+      await shot(ap, '14-http-admin-settings');
+      await ap.goto(`${insecure}/admin/#/mocks/${id3}`);
+      const procCard = ap.locator('.card', { has: ap.locator('h3', { hasText: 'Video nazorat (kamera va ekran)' }) });
+      await procCard.waitFor();
+      assert(await procCard.locator('.alert-warn', { hasText: 'http://' }).count() === 1, "mock sozlamalarida HTTPS ogohlantirishi yo'q");
+      await procCard.scrollIntoViewIfNeeded();
+      await shot(ap, '15-http-admin-mock');
+    } finally {
+      for (const c of contexts) await c.close();
+    }
   });
 
   await step("o'quvchi parolini o'zi almashtiradi va yangi parol bilan kira oladi", async () => {

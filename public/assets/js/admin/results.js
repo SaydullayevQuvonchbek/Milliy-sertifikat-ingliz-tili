@@ -77,8 +77,10 @@ function videoCard(d, meta, reload) {
 function proctorCell(a) {
   const p = a.proctor;
   const flags = [];
-  if (p && p.camera_missing) flags.push(h('span', { class: 'badge-danger', title: 'Kamera ishlamagan', text: 'kamerasiz' }));
-  if (p && p.screen_missing) flags.push(h('span', { class: 'badge-danger', title: 'Ekran ulashilmagan', text: 'ekransiz' }));
+  // Sayt http:// da ochilgan bo'lsa, brauzer kamera/ekranni umuman bermaydi — sababi belgi ustida ko'rsatiladi.
+  const why = (status, fallback) => (status === 'insecure' ? "Sayt HTTPS emas — brauzer ruxsat bermadi" : fallback);
+  if (p && p.camera_missing) flags.push(h('span', { class: 'badge-danger', title: why(p.camera, 'Kamera ishlamagan'), text: 'kamerasiz' }));
+  if (p && p.screen_missing) flags.push(h('span', { class: 'badge-danger', title: why(p.screen, 'Ekran ulashilmagan'), text: 'ekransiz' }));
   if (p && p.screens > 1) flags.push(h('span', { class: 'badge-danger', text: `${p.screens} monitor` }));
   if (!flags.length && !a.videos) return h('span', { class: 'muted', text: '—' });
   return h('div', { class: 'proctor-flags' }, a.videos ? h('span', { class: 'muted small', text: `${a.videos} ta` }) : null, flags);

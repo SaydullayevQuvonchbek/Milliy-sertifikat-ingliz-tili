@@ -393,7 +393,10 @@ export class ExamApp {
     };
 
     const soundCheck = sec.code === 'L' || state.attempt.sections.includes('L') ? this.soundCheck() : null;
-    const rules = proctor ? T.rules.concat(T.rulesProctor) : T.rules;
+    // Qoidada faqat haqiqatan yoziladiganlar aytiladi (ekran faqat yozma qismda yoziladi).
+    const camOn = Boolean(proctor) && proctor.camera.mode !== 'off';
+    const scrOn = Boolean(proctor) && proctor.screen.mode !== 'off' && state.attempt.sections.some((c) => c !== 'S');
+    const rules = camOn || scrOn ? T.rules.concat(T.rulesProctor(camOn, scrOn)) : T.rules;
     this.root.replaceChildren(h('div', { class: 'center-screen' },
       h('div', { class: 'card rules-card' },
         h('div', { class: 'rules-head' },
