@@ -210,7 +210,7 @@ final class ExamController
         });
     }
 
-    /** Video nazorat: yozuv bo'lagi (~30 soniya). Imtihon tugagandan keyin ham qisqa vaqt qabul qilinadi. */
+    /** Video nazorat: yozuv bo'lagi (~15 soniya). Imtihon tugagandan keyin ham qisqa vaqt qabul qilinadi. */
     public static function recPiece(Request $r): array
     {
         $file = $r->files['data'] ?? null;

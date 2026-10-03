@@ -72,7 +72,7 @@ export function composeLayout(screen, camera) {
   return null;
 }
 
-/** Bitrate (kbit/s) va kadr o'lchamiga qarab — 30 soniyalik bo'lak taxminan necha bayt. */
+/** Bitrate (kbit/s) bo'yicha — berilgan uzunlikdagi bo'lak (standart 30 soniya) taxminan necha bayt. */
 export function pieceBytes(kbps, seconds = 30) {
   return Math.round((kbps * 1000 * seconds) / 8);
 }
