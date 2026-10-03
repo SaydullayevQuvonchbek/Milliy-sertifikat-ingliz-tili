@@ -265,16 +265,20 @@ brauzer kutadi, sahifa yangilansa yozuv yangi faylda davom etadi (oxirgi ~15 son
 (**Mocklar → mock → Umumiy → Video nazorat**): kamera va ekran — "O'chiq", "Bo'lsa yoziladi" (rad etsa yoki kamera yo'q
 bo'lsa imtihon davom etadi, natijalar jadvalida "kamerasiz"/"ekransiz" belgisi turadi — bo'lim boshlanganda yoki bo'lim
 davomida qurilma ishlamagan bo'lsa) yoki "Majburiy" (ishlamasa imtihon boshlanmaydi; ekran ulashishni to'xtatish va
-kamerani uzish qoidabuzarlik hisoblanadi). Speaking'da faqat kamera so'raladi. Yangi mocklarda
-standart — "Bo'lsa yoziladi". Ekranni ulashish to'xtatilsa — ogohlantirish va "Ekranni qayta ulashish" tugmasi chiqadi.
+kamerani uzish qoidabuzarlik hisoblanadi). Speaking'da faqat kamera so'raladi. **Standart — "Bo'lsa yoziladi", eski
+mocklarda ham:** yangilanishdan keyin barcha imtihonlarda kamera va ekran so'raladi; kerak bo'lmagan mockda "O'chiq"
+qiling. Ekranni ulashish to'xtatilsa — ogohlantirish va "Ekranni qayta ulashish" tugmasi chiqadi; sahifa yangilansa
+(tanaffusda ham) kamera va ekran qayta so'raladi.
 
 **Qayerga ketadi.** Server videolarni navbat bilan Telegram kanalga yuboradi (yozuv ostida: mock, o'quvchi, kod,
 bo'lim, vaqt, belgilar). **Yozma qism videolari kanalga yuborilgach serverdan o'chiriladi; Speaking videolari serverda
 ham qoladi.** Admin panelda (urinish sahifasi → "Video yozuvlar") har fayl holati, "Ko'rish", "Yuklab olish" va kanal
 xabariga "Telegram" havolasi bor. Telegram sozlanmagan yoki ishlamasa, videolar serverda turadi va
-`rec_keep_days` kundan (standart 30) keyin o'chiriladi. Hosting diski to'lib sayt ishdan chiqmasligi uchun videolarga
-ajratilgan joy cheklangan (**"Video uchun joy"**, standart 10 240 MB): to'lsa, yangi yozuv qabul qilinmaydi va imtihon
-videosiz davom etadi (admin panelda ogohlantirish chiqadi). Hosting tarifingizdagi disk hajmiga qarab o'zgartiring.
+`rec_keep_days` kundan (standart 30) keyin o'chiriladi. Hosting diski to'lib sayt ishdan chiqmasligi uchun
+Telegram'ni kutayotgan videolarga ajratilgan joy cheklangan (**"Yuborilmagan videolar uchun joy"**, standart
+10 240 MB): to'lsa, yangi yozuv boshlanmaydi va imtihon videosiz davom etadi (admin panelda ogohlantirish chiqadi;
+videolar Telegram'ga ketib joy bo'shagach yozuv o'zi qayta boshlanadi). Hosting tarifingizdagi disk hajmiga qarab
+o'zgartiring. Serverda qoladigan Speaking videolari bu chegaraga kirmaydi — ularni "Speaking videolari (kun)" boshqaradi.
 Internet uzilsa brauzer videoni xotirada saqlab turadi (taxminan 1 soatgacha) va aloqa tiklangach yuboradi.
 
 **Hajm.** 250 kbit/s (standart) ≈ 1.9 MB/daqiqa: yozma qism (~2 soat 45 daqiqa) ≈ 300 MB, Speaking ≈ 20–30 MB bir
@@ -327,7 +331,9 @@ Bunday hostingda "Sinov xabari" `Telegram'ga ulanib bo'lmadi… timeout` deydi. 
   tg.sizning-domen.uz {
       @begona not remote_ip SAYT_SERVERI_IP
       respond @begona 403
-      request_body { max_size 60MB }
+      request_body {
+          max_size 60MB
+      }
       reverse_proxy https://api.telegram.org {
           header_up Host api.telegram.org
       }
